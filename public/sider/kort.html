@@ -1,0 +1,450 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+  * { user-select: none; -webkit-user-select: none; }
+  body { display: flex; height: 100vh; overflow: hidden; background: #07090f; }
+
+  .kort-area { flex: 1; position: relative; overflow: hidden; }
+  canvas#kort { position: absolute; top: 0; left: 0; cursor: grab; display: block; touch-action: none; }
+  canvas#kort:active { cursor: grabbing; }
+  .kort-area { cursor: grab; }
+  .kort-area:active { cursor: grabbing; }
+
+  .kort-kontroller { position: absolute; bottom: 16px; right: 16px; display: flex; flex-direction: column; gap: 5px; z-index: 10; }
+  .kort-knap { width: 36px; height: 36px; background: var(--panel); border: 1px solid var(--border); color: var(--text); font-size: 16px; border-radius: 5px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.1s; font-family: monospace; }
+  .kort-knap:hover { border-color: var(--accent); color: var(--accent); }
+
+
+
+  .kort-panel { width: 240px; background: var(--panel); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .panel-header { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  .enhed-liste { overflow-y: auto; flex: 1; padding: 8px; }
+
+  .enhed-kort { background: var(--panel2); border: 1px solid var(--border); border-radius: 5px; padding: 9px 11px; margin-bottom: 5px; cursor: pointer; transition: border-color 0.1s; display: flex; align-items: center; gap: 10px; }
+  .enhed-kort:hover { border-color: var(--border2); }
+  .enhed-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .enhed-call { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--accent2); }
+  .enhed-navn { font-size: 12px; color: var(--muted); }
+
+  .tooltip {
+    position: fixed; background: var(--panel); border: 1px solid var(--border2);
+    border-radius: 5px; padding: 8px 12px; pointer-events: none;
+    z-index: 100; display: none; min-width: 140px;
+  }
+  .tooltip-call { font-size: 13px; font-weight: 700; color: var(--white); }
+  .tooltip-info { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .pursuit-banner {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+    background: rgba(30,20,60,0.92); border-bottom: 2px solid #3b82f6;
+    color: #93c5fd; font-size: 12px; font-weight: 700; letter-spacing: 3px;
+    text-transform: uppercase; padding: 7px; text-align: center;
+    display: none; animation: pulseBanner 1s infinite;
+  }
+  @keyframes pulseBanner { 0%,100%{border-color:#3b82f6;color:#93c5fd}50%{border-color:white;color:white} }
+</style>
+</head>
+<body>
+
+<div class="kort-area" id="kort-area">
+  <div class="pursuit-banner" id="pursuit-banner">⚠ AKTIV EFTERSÆTTELSE ⚠</div>
+
+  <canvas id="kort"></canvas>
+  <div class="kort-kontroller">
+    <button class="kort-knap" onclick="zoom(1.2)">+</button>
+    <button class="kort-knap" onclick="zoom(0.8)">−</button>
+    <button class="kort-knap" onclick="nulstil()" style="font-size:13px;">⌂</button>
+  </div>
+</div>
+
+<div class="kort-panel">
+  <div class="panel-header">Aktive enheder</div>
+  <div class="enhed-liste" id="enhed-liste">
+    <div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Indlæser...</div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  const CAB_FARVER = {
+    patrulje: '#22c55e', tilgaengelig: '#22c55e', optaget: '#eab308',
+    eftersaettelse: '#3b82f6', utilgaengelig: '#ef4444',
+    out_of_service: '#6c7a96', offline: '#374151'
+  };
+  let token = '', backendUrl = '', mig = null;
+  let kortImg = null, sæson = 'fall'; // Fast kort
+  let scale = 1, offX = 0, offY = 0;
+  let dragging = false, lastX, lastY;
+  let markorer = [], erlcEnheder = [], cabEnheder = [];
+  let pursuFrame = 0;
+  let minCabStatus = 'out_of_service';
+  let aktivtOpkald = null;
+
+  // Kalibreret fra reelle datapunkter.
+  // X=0 offset passer fint. Z er lidt for lavt - korriger med -90.
+  const IMG_SIZE = 2048;
+  const SKALA    = 2048 / 3072;
+  const X_OFF    = -30;
+  const Z_OFF    = -35;
+  function verdentilPixel(lx, lz) {
+    return {
+      x: lx * SKALA,
+      y: (lz + Z_OFF) * SKALA
+    };
+  }
+
+  async function startSide() {
+    tilpassCanvas();
+    window.addEventListener('resize', tilpassCanvas);
+    opsaetMus();
+    setInterval(() => { pursuFrame++; tegn(); }, 500); // Tegn altid — animerer eftersættelse + opkald puls
+    // Vent en tick så backendUrl er sat korrekt
+    setTimeout(() => {
+      indlaesKort();
+      hentData();
+      setInterval(hentData, 3000);
+    }, 100);
+  }
+
+  function tilpassCanvas() {
+    const area = document.getElementById('kort-area');
+    const c = document.getElementById('kort');
+    c.width = area.clientWidth; c.height = area.clientHeight;
+    if (kortImg) tegn();
+  }
+
+  function indlaesKort() {
+    const img = new Image();
+    img.src = `${backendUrl}/erlc/kort/${sæson}_postals`;
+    img.onload = () => {
+      kortImg = img;
+      // Sørg for canvas er korrekt dimensioneret før nulstil
+      tilpassCanvas();
+      nulstil();
+    };
+    img.onerror = () => console.error('Kortbillede kunne ikke indlæses');
+  }
+
+
+
+  function nulstil() {
+    if (!kortImg) return;
+    const c = document.getElementById('kort');
+    scale = Math.min(c.width / IMG_SIZE, c.height / IMG_SIZE) * 0.96;
+    offX = (c.width  - IMG_SIZE * scale) / 2;
+    offY = (c.height - IMG_SIZE * scale) / 2;
+    tegn();
+  }
+
+  function klamreOffset() {
+    if (!kortImg) return;
+    const c = document.getElementById('kort');
+    const kortW = IMG_SIZE * scale;
+    const kortH = IMG_SIZE * scale;
+    const margin = 80; // px udenfor kortet man må trække
+
+    // Max offset: kortet må ikke forsvinde ud af vinduet
+    offX = Math.min(offX,  margin);
+    offY = Math.min(offY,  margin);
+    offX = Math.max(offX,  c.width  - kortW - margin);
+    offY = Math.max(offY,  c.height - kortH - margin);
+  }
+
+  function zoom(f) {
+    const c = document.getElementById('kort');
+    const cx = c.width / 2, cy = c.height / 2;
+    const ns = Math.max(0.15, Math.min(10, scale * f));
+    offX = cx - (cx - offX) * (ns / scale);
+    offY = cy - (cy - offY) * (ns / scale);
+    scale = ns;
+    klamreOffset();
+    tegn();
+  }
+
+  function opsaetMus() {
+    const c = document.getElementById('kort');
+    c.addEventListener('mousedown', e => { dragging = true; lastX = e.clientX; lastY = e.clientY; });
+    window.addEventListener('mousemove', e => {
+      if (dragging) { offX += e.clientX - lastX; offY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; tegn(); }
+      else visTip(e);
+    });
+    window.addEventListener('mouseup', () => { dragging = false; });
+    c.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = c.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      const f = e.deltaY < 0 ? 1.1 : 0.9;
+      const ns = Math.max(0.15, Math.min(10, scale * f));
+      offX = mx - (mx - offX) * (ns / scale);
+      offY = my - (my - offY) * (ns / scale);
+      scale = ns;
+      klamreOffset();
+      tegn();
+    }, { passive: false });
+    c.addEventListener('click', e => {
+      const rect = c.getBoundingClientRect();
+      const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+      markorer.forEach(m => {
+        const sx = m.px * scale + offX, sy = m.py * scale + offY;
+        if (Math.hypot(mx - sx, my - sy) < 14 * scale) fokus(m.unit);
+      });
+    });
+  }
+
+  function visTip(e) {
+    const c = document.getElementById('kort');
+    const rect = c.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const tip = document.getElementById('tooltip');
+    let hit = null;
+    for (const m of markorer) {
+      const sx = m.px * scale + offX, sy = m.py * scale + offY;
+      if (Math.hypot(mx - sx, my - sy) < 14 * scale) { hit = m; break; }
+    }
+    if (hit) {
+      const u = hit.unit;
+      tip.innerHTML = `<div class="tooltip-call">${u.Callsign || u.Player?.split(':')[0]}</div><div class="tooltip-info">${u.Team || ''} · ${u.Location?.StreetName || ''}</div>`;
+      tip.style.display = 'block'; tip.style.left = (e.clientX + 14) + 'px'; tip.style.top = (e.clientY - 10) + 'px';
+      c.style.cursor = 'pointer';
+    } else {
+      tip.style.display = 'none'; c.style.cursor = dragging ? 'grabbing' : 'grab';
+    }
+  }
+
+  async function hentData() {
+    try {
+      const [erlcR, cabR] = await Promise.all([
+        fetch(`${backendUrl}/erlc/live`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${backendUrl}/cab`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      if (erlcR.ok) {
+        const d = await erlcR.json();
+        erlcEnheder = d.politi || [];
+        console.log('[KORT] Hentet', erlcEnheder.length, 'police spillere, teams:', [...new Set(erlcEnheder.map(u=>u.Team))]);
+
+        // Ryd waypoint hvis opkaldet ikke længere eksisterer
+        if (aktivtOpkald?.callNumber) {
+          const aktiveOpkald = d.noedopkald || [];
+          const findOpkald = aktiveOpkald.find(o => (o.CallNumber || o.opkaldsnr) == aktivtOpkald.callNumber);
+          if (!findOpkald) {
+            console.log('[KORT] Opkald afsluttet — waypoint fjernet');
+            aktivtOpkald = null;
+          }
+        }
+      }
+      if (cabR.ok) { cabEnheder = await cabR.json(); }
+      visEnhederPanel();
+      tegn();
+      const harEfftersaettelse = cabEnheder.some(e => e.status === 'eftersaettelse');
+      document.getElementById('pursuit-banner').style.display = harEfftersaettelse ? 'block' : 'none';
+    } catch(e) { console.error('[KORT] hentData fejl:', e.message); }
+  }
+
+  function visEnhederPanel() {
+    const liste = document.getElementById('enhed-liste');
+    if (!cabEnheder.length && !erlcEnheder.length) {
+      liste.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">Ingen aktive enheder</div>';
+      return;
+    }
+    liste.innerHTML = cabEnheder.map(e => `
+      <div class="enhed-kort" onclick="fokusBruger('${e.kaldesignal}')">
+        <div class="enhed-dot" style="background:${CAB_FARVER[e.status] || '#374151'}"></div>
+        <div>
+          <div class="enhed-call">${e.kaldesignal || '—'}</div>
+          <div class="enhed-navn">${e.fornavn || ''} ${e.efternavn || ''}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  function tegn() {
+    const c = document.getElementById('kort');
+    const ctx = c.getContext('2d');
+    ctx.clearRect(0, 0, c.width, c.height);
+    if (!kortImg) return;
+    ctx.drawImage(kortImg, offX, offY, IMG_SIZE * scale, IMG_SIZE * scale);
+
+    markorer = [];
+    // Kun 'Police' teamet på kortet
+    // Vis Police-teamet — prøv præcis match, fallback til alle ikke-civile
+    let visEnheder = erlcEnheder.filter(u => u.Team === 'Police');
+    if (!visEnheder.length && erlcEnheder.length > 0) {
+      // Fallback: vis alle hvis ingen Police fundet
+      const civile = ['civilian', 'civilians', 'civile'];
+      visEnheder = erlcEnheder.filter(u => !civile.includes((u.Team||'').toLowerCase()));
+    }
+
+    visEnheder.forEach(u => {
+      if (!u.Location) return;
+      const { x: px, y: py } = verdentilPixel(u.Location.LocationX, u.Location.LocationZ);
+      const sx = px * scale + offX, sy = py * scale + offY;
+      const r = Math.max(8, 12 * scale);
+
+      // Match ERLC spiller mod MDT bruger via roblox_navn
+      const erlcNavn = (u.Player || '').split(':')[0].toLowerCase().trim();
+      const mdtBruger = cabEnheder.find(e => (e.roblox_navn || '').toLowerCase().trim() === erlcNavn);
+
+      // Er dette mig selv?
+      const mitRoblox = (mig?.roblox_navn || '').toLowerCase().trim();
+      const erMigSelv = mitRoblox && erlcNavn === mitRoblox;
+
+      // Brug MDT brugerens callsign/badge hvis de matcher
+      const visCallsign = mdtBruger ? (mdtBruger.badge_nummer || mdtBruger.kaldesignal || u.Callsign) : u.Callsign;
+
+      // Find CAB status via MDT bruger eller callsign
+      const cabEnhed = mdtBruger || cabEnheder.find(e => e.kaldesignal === u.Callsign);
+      const status = cabEnhed?.status || (erMigSelv ? (minCabStatus || 'out_of_service') : 'tilgaengelig');
+      const farve = CAB_FARVER[status] || '#22c55e';
+
+      const radius = r; // Samme størrelse for alle
+
+      if (status === 'eftersaettelse') {
+        ctx.beginPath(); ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = pursuFrame % 2 === 0 ? 'rgba(59,130,246,0.9)' : 'rgba(248,250,252,0.95)';
+        ctx.fill();
+        ctx.strokeStyle = pursuFrame % 2 === 0 ? '#3b82f6' : 'white';
+        ctx.lineWidth = 2.5; ctx.stroke();
+      } else {
+        // Hvid ring rundt om mig selv
+        if (erMigSelv) {
+          ctx.beginPath(); ctx.arc(sx, sy, radius + 5, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+          ctx.lineWidth = 2.5; ctx.stroke();
+        }
+        ctx.beginPath(); ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = farve + 'cc'; ctx.fill();
+        ctx.strokeStyle = farve; ctx.lineWidth = 2; ctx.stroke();
+      }
+
+      // Kaldesignal label — brug MDT P-nummer hvis tilgængeligt
+      const label = visCallsign || u.Callsign || u.Player?.split(':')[0] || '?';
+      const fontSize = Math.max(9, Math.min(12, 10 * scale));
+      ctx.font = `bold ${fontSize}px Rajdhani, sans-serif`;
+      const lw = ctx.measureText(label).width + 8;
+      ctx.fillStyle = 'rgba(13,18,32,0.88)';
+      ctx.beginPath(); ctx.roundRect(sx - lw/2, sy - r - 16, lw, 14, 3); ctx.fill();
+      ctx.fillStyle = '#cdd6f4'; ctx.textAlign = 'center';
+      ctx.fillText(label, sx, sy - r - 5);
+
+      // Tekst i cirkel
+      // Tag de sidste 2 cifre/bogstaver uden bindestreg — P10-36 → "36"
+      const kun_tal_bog = label.replace(/[^a-zA-Z0-9]/g, '');
+      const short = kun_tal_bog.slice(-2) || label.slice(-2);
+      ctx.font = `bold ${Math.max(8, 10 * scale)}px Rajdhani, sans-serif`;
+      ctx.fillStyle = 'white'; ctx.textBaseline = 'middle';
+      ctx.fillText(short, sx, sy);
+      ctx.textBaseline = 'alphabetic';
+
+      markorer.push({ px, py, unit: u });
+    });
+
+    // Tegn aktivt nødopkald waypoint
+    if (aktivtOpkald) {
+      const ax = aktivtOpkald.x * scale + offX;
+      const ay = aktivtOpkald.y * scale + offY;
+      const puls = 0.8 + 0.2 * Math.sin(Date.now() / 250);
+
+      // Ydre pulserende ring
+      ctx.beginPath();
+      ctx.arc(ax, ay, 22 * puls, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(234,179,8,0.15)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(234,179,8,0.5)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Indre gul cirkel
+      ctx.beginPath();
+      ctx.arc(ax, ay, 13, 0, Math.PI * 2);
+      ctx.fillStyle = '#eab308';
+      ctx.fill();
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Udråbstegn ikon
+      ctx.fillStyle = '#000';
+      ctx.font = 'bold 13px Rajdhani, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('!', ax, ay);
+
+      // Label med lokation
+      const lok = aktivtOpkald.lokation || 'Nødopkald';
+      ctx.font = 'bold 10px Rajdhani, sans-serif';
+      const lw = ctx.measureText(lok).width + 10;
+      ctx.fillStyle = 'rgba(234,179,8,0.9)';
+      ctx.beginPath();
+      ctx.roundRect(ax - lw/2, ay - 30, lw, 15, 3);
+      ctx.fill();
+      ctx.fillStyle = '#000';
+      ctx.fillText(lok, ax, ay - 22);
+      ctx.textBaseline = 'alphabetic';
+    }
+  }
+
+  function fokus(unit) {
+    if (!unit.Location) return;
+    const { x: px, y: py } = verdentilPixel(unit.Location.LocationX, unit.Location.LocationZ);
+    const c = document.getElementById('kort');
+    scale = 3;
+    offX = c.width / 2 - px * scale;
+    offY = c.height / 2 - py * scale;
+    tegn();
+  }
+
+  function fokusBruger(kaldesignal) {
+    const enhed = erlcEnheder.find(u => u.Callsign === kaldesignal);
+    if (enhed) fokus(enhed);
+  }
+
+  // Lyt på CAB opdateringer fra parent
+  window.addEventListener('message', e => {
+    if (e.data?.type === 'cab_opdatering') hentData();
+    if (e.data?.type === 'nyt_noedopkald') tegn();
+  });
+
+  
+
+  // PostMessage kommunikation med parent
+  let _init = false;
+  window.addEventListener('message', e => {
+    const m = e.data || {};
+    if (m.type === 'cab_opdatering' && m.data?.status) {
+      minCabStatus = m.data.status;
+    }
+    if (m.type === 'vis_opkald_paa_kort' && m.data?.position) {
+      const pos = m.data.position;
+      if (pos && pos.length >= 2) {
+        const SCALE = 2048 / 3072;
+        const X_OFF = -30, Z_OFF = -35;
+        // ER:LC Position er [X, Z]
+        const sx = Math.round(pos[0] * SCALE + X_OFF);
+        const sy = Math.round(pos[1] * SCALE + Z_OFF);
+        console.log('[KORT] Opkald position:', pos, '→ canvas:', sx, sy);
+        // Centrer kortet - brug korrekte variabelnavne
+        const c = document.getElementById('kort');
+        offX = c.width  / 2 - sx * scale;
+        offY = c.height / 2 - sy * scale;
+        klamreOffset();
+        aktivtOpkald = { x: sx, y: sy, tekst: m.data.beskrivelse, lokation: m.data.lokation, callNumber: m.data.callNumber };
+        tegn();
+      }
+    }
+    if (m.type === 'init' && m.token) {
+      token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger || null;
+      if (!_init) { _init = true; startSide(); }
+    }
+    if (m.type === 'cab_opdatering' && typeof onCabOpdatering === 'function') onCabOpdatering();
+  });
+  window.parent.postMessage({ type: 'klar' }, '*');
+  // Fallback
+  setTimeout(() => { if (!_init) { try { token = window.parent.token || ''; backendUrl = ''; } catch{} if (token) { _init = true; startSide(); } } }, 800);
+  function toast(t, x, k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}}, '*'); } catch{} }
+</script>
+</body>
+</html>

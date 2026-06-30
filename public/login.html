@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politi MDT — Log ind</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  body::before { content:''; position:fixed; top:0; left:0; right:0; bottom:0;
+    background: linear-gradient(160deg, #0d2240 0%, #091829 60%, #0a1e36 100%); z-index:-1; }
+  .auth-streger { position:fixed; top:0; right:0; width:300px; height:100%;
+    opacity:0.04; pointer-events:none;
+    background: repeating-linear-gradient(-55deg, white 0px, white 14px, transparent 14px, transparent 32px); }
+  .boks { width:400px; animation: fadeIn 0.3s ease; }
+</style>
+</head>
+<body>
+<div class="auth-streger"></div>
+<div class="boks">
+  <div class="auth-boks">
+    <div class="auth-header">
+      <img src="/assets/logo_primær.png" class="auth-logo" alt="Politi">
+      <div class="auth-titel">Politi MDT</div>
+      <div class="auth-sub">Mobil Data Terminal · Danmark</div>
+    </div>
+
+    <div class="auth-form">
+      <div id="fejl-boks"></div>
+
+      <div class="auth-lbl">Brugernavn (Email)</div>
+      <input class="auth-input" type="email" id="email"
+        placeholder="betjent@politi.dk"
+        onkeydown="if(event.key==='Enter')login()">
+
+      <div class="auth-lbl">Adgangskode</div>
+      <input class="auth-input" type="password" id="pw"
+        placeholder="••••••••"
+        onkeydown="if(event.key==='Enter')login()">
+
+      <button class="auth-knap" onclick="login()" id="login-knap">
+        Log ind
+      </button>
+
+      <div style="text-align:center;margin-top:16px;">
+        <span style="font-size:12px;color:var(--muted)">Ingen konto endnu? Verificer med Discord:</span><br>
+        <button class="auth-reg-knap" style="margin-top:8px;" onclick="window.location.href='/auth/login'">
+          Registrer via Discord →
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('load', () => {
+  const params = new URLSearchParams(location.search);
+  const fejl = params.get('fejl');
+  const discord = params.get('discord');
+  if (fejl) {
+    const msgs = {
+      adgang_naegtede: 'Du afviste Discord-login.',
+      ingen_rolle: 'Du har ikke den nødvendige Discord-rolle.',
+      ikke_paa_serveren: 'Du er ikke på Discord-serveren.',
+      server_fejl: 'Serverfejl — prøv igen.',
+    };
+    document.getElementById('fejl-boks').innerHTML =
+      `<div class="auth-fejl">${msgs[fejl] || fejl}</div>`;
+  }
+  if (discord === 'ok') {
+    document.getElementById('fejl-boks').innerHTML =
+      `<div style="background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-left:3px solid #22c55e;border-radius:5px;padding:10px 14px;font-size:13px;color:#4ade80;margin-bottom:16px;">Discord verificeret — log ind med din email og adgangskode</div>`;
+  }
+});
+
+async function login() {
+  const email = document.getElementById('email').value.trim();
+  const pw    = document.getElementById('pw').value;
+  if (!email || !pw) { visFejl('Udfyld email og adgangskode'); return; }
+
+  const knap = document.getElementById('login-knap');
+  knap.disabled = true; knap.textContent = 'Logger ind...';
+
+  try {
+    const r = await fetch('/auth/login-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, adgangskode: pw })
+    });
+    const data = await r.json();
+    if (r.ok) {
+      localStorage.setItem('mdt_token', data.token);
+      window.location.href = '/app';
+    } else {
+      visFejl(data.fejl || 'Forkert email eller adgangskode');
+      knap.disabled = false; knap.textContent = 'Log ind';
+    }
+  } catch {
+    visFejl('Kan ikke nå serveren');
+    knap.disabled = false; knap.textContent = 'Log ind';
+  }
+}
+
+function visFejl(t) {
+  document.getElementById('fejl-boks').innerHTML = `<div class="auth-fejl">${t}</div>`;
+}
+</script>
+</body>
+</html>

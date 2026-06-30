@@ -1,0 +1,327 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { display: grid; grid-template-columns: 1fr 400px; height: 100vh; overflow: hidden; background: var(--bg); }
+  .liste-side { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+  .liste-header { padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+  .liste-header h2 { font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); flex: 1; }
+  .liste-scroll { overflow-y: auto; flex: 1; }
+
+  .sag-item {
+    padding: 14px 16px; border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background 0.1s;
+  }
+  .sag-item:hover { background: var(--panel2); }
+  .sag-item.valgt { background: rgba(168,85,247,0.06); border-left: 3px solid var(--purple); }
+  .sag-nr { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .sag-tiltalte { font-size: 15px; font-weight: 700; color: var(--white); }
+  .sag-punkter { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .sag-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
+
+  .detalje-side { display: flex; flex-direction: column; overflow: hidden; }
+  .detalje-scroll { overflow-y: auto; flex: 1; padding: 16px; }
+
+  .tom-valg { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--muted); }
+  .tom-valg-ikon { font-size: 48px; opacity: 0.25; }
+
+  .sag-header-box {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px 20px; margin-bottom: 14px;
+  }
+  .sag-header-nr { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .sag-header-navn { font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 8px; }
+  .parter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .part-boks { background: var(--panel2); border: 1px solid var(--border); border-radius: 5px; padding: 10px 12px; }
+  .part-lbl { font-size: 10px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+  .part-val { font-size: 13px; color: var(--white); font-weight: 600; }
+
+  .tiltale-liste { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .tiltale-punkt { display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--panel2); border: 1px solid var(--border); border-radius: 5px; }
+  .tiltale-kode { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--accent2); min-width: 48px; }
+  .tiltale-navn { font-size: 13px; color: var(--text); }
+
+  .dom-boks { background: var(--panel); border: 2px solid var(--border); border-radius: 8px; overflow: hidden; margin-top: 14px; }
+  .dom-header { padding: 10px 16px; background: var(--politi-navy); border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .dom-content { padding: 14px 16px; }
+  .dom-tekst { font-size: 14px; color: var(--white); line-height: 1.5; }
+  .dom-straf { font-size: 13px; color: var(--yellow); margin-top: 8px; }
+
+  /* Admin dom-form */
+  .dom-form { padding: 14px 16px; border-top: 1px solid var(--border); display: none; }
+  .dom-form.vis { display: block; }
+
+  /* Rediger sag */
+  .rediger-boks { background: var(--panel); border: 1px solid var(--accent,#63b3ed); border-radius: 8px; overflow: hidden; margin-top: 14px; }
+  .rediger-header { padding: 10px 16px; background: rgba(99,179,237,0.08); border-bottom: 1px solid rgba(99,179,237,0.2); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--accent,#63b3ed); display: flex; align-items: center; justify-content: space-between; }
+  .rediger-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .rediger-felt label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .rediger-felt input, .rediger-felt select, .rediger-felt textarea { width: 100%; box-sizing: border-box; background: var(--panel2); border: 1px solid var(--border2,#2d3a50); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 13px; padding: 7px 10px; border-radius: 5px; outline: none; transition: border-color 0.15s; }
+  .rediger-felt input:focus, .rediger-felt select:focus, .rediger-felt textarea:focus { border-color: var(--accent,#63b3ed); }
+  .status-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+  .status-valg { padding: 6px 14px; border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border: 2px solid var(--border); background: var(--panel2); color: var(--muted); transition: all 0.15s; }
+  .status-valg:hover { border-color: var(--border2); }
+  .status-valg.aktiv { border-color: currentColor; background: rgba(255,255,255,0.06); }
+  .status-valg.afventer  { color: #eab308; }
+  .status-valg.igangvaerende { color: #63b3ed; }
+  .status-valg.afgjort   { color: #22c55e; }
+  .status-valg.frikendt  { color: #9ca3af; }
+</style>
+</head>
+<body>
+
+<!-- LISTE -->
+<div class="liste-side">
+  <div class="liste-header">
+    <h2>Retssager</h2>
+    <button class="btn btn-sm" onclick="hentSager()">↻</button>
+  </div>
+  <div class="liste-scroll" id="liste">
+    <div style="padding:20px;text-align:center;color:var(--muted)">Indlæser...</div>
+  </div>
+</div>
+
+<!-- DETALJE -->
+<div class="detalje-side">
+  <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--panel);flex-shrink:0;">
+    <div style="font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);">Sagsdetaljer</div>
+  </div>
+  <div class="detalje-scroll" id="detalje">
+    <div class="tom-valg">
+      <div class="tom-valg-ikon">⚖️</div>
+      <div>Vælg en sag for at se detaljer</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STATUS_INFO = {
+    afventer:      { label: 'Afventer', badge: 'badge-gul' },
+    igangvaerende: { label: 'Igangværende', badge: 'badge-blå' },
+    afgjort:       { label: 'Afgjort', badge: 'badge-grøn' },
+    frikendt:      { label: 'Frikendt', badge: 'badge-grå' }
+  };
+  let token = '', backendUrl = '', mig = null;
+
+  async function startSide() {
+    erAdmin    = window.parent._mdtBruger?.er_admin === 1;
+    hentSager();
+  }
+
+  async function hentSager() {
+    try {
+      const r = await fetch(`${backendUrl}/data/retssager`, { headers: { Authorization: `Bearer ${token}` } });
+      alleAager = await r.json();
+      visListe(alleAager);
+    } catch {}
+  }
+
+  function visListe(sager) {
+    const liste = document.getElementById('liste');
+    if (!sager.length) {
+      liste.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Ingen retssager endnu<br><span style="font-size:12px;">Oprettes automatisk ved anholdelse</span></div>';
+      return;
+    }
+    liste.innerHTML = sager.map(s => {
+      const si = STATUS_INFO[s.status] || STATUS_INFO.afventer;
+      const punkter = JSON.parse(s.tiltale_punkter || '[]');
+      return `<div class="sag-item" onclick="visSag(${s.id}, this)">
+        <div class="sag-nr">${s.sags_nr}</div>
+        <div class="sag-tiltalte">${s.tiltalte_navn}</div>
+        <div class="sag-punkter">${punkter.join(' · ')}</div>
+        <div class="sag-meta">
+          <span style="font-size:11px;color:var(--muted)">${new Date(s.oprettet).toLocaleDateString('da-DK')}</span>
+          <span class="badge ${si.badge}">${si.label}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  let aktivSagId = null;
+
+  function visSag(id, el) {
+    document.querySelectorAll('.sag-item').forEach(i => i.classList.remove('valgt'));
+    el.classList.add('valgt');
+    aktivSagId = id;
+
+    const sag = alleAager.find(s => s.id === id);
+    if (!sag) return;
+
+    const punkter = JSON.parse(sag.tiltale_punkter || '[]');
+    const si = STATUS_INFO[sag.status] || STATUS_INFO.afventer;
+
+    let html = `
+      <div class="sag-header-box">
+        <div class="sag-header-nr">${sag.sags_nr}</div>
+        <div class="sag-header-navn">Sagen mod ${sag.tiltalte_navn}</div>
+        <span class="badge ${si.badge}">${si.label}</span>
+        <div class="parter-grid">
+          <div class="part-boks">
+            <div class="part-lbl">Anklager</div>
+            <div class="part-val">${sag.anklager_navn || '—'}</div>
+          </div>
+          <div class="part-boks">
+            <div class="part-lbl">Forsvarer</div>
+            <div class="part-val">${sag.forsvarer || 'Ikke angivet'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Tiltale</div>
+      <div class="tiltale-liste">
+        ${punkter.map(p => `<div class="tiltale-punkt"><span class="tiltale-kode">${p}</span></div>`).join('')}
+      </div>`;
+
+    if (sag.kendsgerninger) {
+      html += `
+        <div style="font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Kendsgerninger</div>
+        <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:12px 14px;font-size:13px;color:var(--text);line-height:1.5;margin-bottom:14px;">${sag.kendsgerninger}</div>`;
+    }
+
+    if (sag.dom) {
+      html += `<div class="dom-boks">
+        <div class="dom-header">Dom</div>
+        <div class="dom-content">
+          <div class="dom-tekst">${sag.dom}</div>
+          ${sag.straf ? `<div class="dom-straf">Straf: ${sag.straf}</div>` : ''}
+        </div>
+      </div>`;
+    }
+
+    // Admin: afsig dom
+    if (erAdmin && sag.status !== 'afgjort' && sag.status !== 'frikendt') {
+      html += `
+        <div class="dom-boks" style="margin-top:14px;border-color:var(--accent);">
+          <div class="dom-header" style="color:var(--accent2);">Afsig Dom</div>
+          <div class="dom-form vis">
+            <div class="field"><label>Dom / afgørelse</label><textarea id="dom-tekst" placeholder="Beskriv dommen..." style="min-height:80px;"></textarea></div>
+            <div class="field"><label>Straf</label><input type="text" id="dom-straf" placeholder="F.eks. 30 min fængsel + 10.000 kr"></div>
+            <div style="display:flex;gap:8px;margin-top:8px;">
+              <button class="btn btn-green" style="flex:1" onclick="afsigDom(${sag.id}, 'afgjort')">Skyldig</button>
+              <button class="btn btn-outline" onclick="afsigDom(${sag.id}, 'frikendt')">Frikendt</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // Rediger sag — altid synlig
+    html += `
+      <div class="rediger-boks">
+        <div class="rediger-header">
+          Rediger sag
+          <button class="btn btn-sm btn-primary" onclick="gemRedigeringer(${sag.id})">Gem ændringer</button>
+        </div>
+        <div class="rediger-body">
+          <div class="rediger-felt">
+            <label>Anklager</label>
+            <input type="text" id="red-anklager" value="${sag.anklager_navn || ''}" placeholder="Betjentens navn...">
+          </div>
+          <div class="rediger-felt">
+            <label>Forsvarer / Advokatfirma</label>
+            <select id="red-forsvarer-select" onchange="opdaterForsvarer(this.value)" style="margin-bottom:6px;">
+              <option value="">Vælg advokatfirma...</option>
+              <option value="Advokatfirmaet Nielsen & Co.">Advokatfirmaet Nielsen & Co.</option>
+              <option value="Advokat Hansen">Advokat Hansen</option>
+              <option value="Justicia Advokatfirma">Justicia Advokatfirma</option>
+              <option value="LexDK Advokater">LexDK Advokater</option>
+              <option value="Forsvarets Advokatkontor">Forsvarets Advokatkontor</option>
+              <option value="Ingen forsvarer">Ingen forsvarer</option>
+              <option value="anden">Anden / Skriv selv...</option>
+            </select>
+            <input type="text" id="red-forsvarer" value="${sag.forsvarer || ''}" placeholder="Eller skriv forsvarerens navn...">
+          </div>
+          <div class="rediger-felt">
+            <label>Status</label>
+            <div class="status-badges">
+              <div class="status-valg afventer ${sag.status==='afventer'?'aktiv':''}" onclick="vaelgStatus('afventer', this)">Afventer</div>
+              <div class="status-valg igangvaerende ${sag.status==='igangvaerende'?'aktiv':''}" onclick="vaelgStatus('igangvaerende', this)">Igangværende</div>
+              <div class="status-valg afgjort ${sag.status==='afgjort'?'aktiv':''}" onclick="vaelgStatus('afgjort', this)">Afgjort</div>
+              <div class="status-valg frikendt ${sag.status==='frikendt'?'aktiv':''}" onclick="vaelgStatus('frikendt', this)">Frikendt</div>
+            </div>
+          </div>
+          <div class="rediger-felt">
+            <label>Kendsgerninger / Yderligere oplysninger</label>
+            <textarea id="red-kendsgerninger" style="min-height:80px;" placeholder="Tilføj kendsgerninger eller yderligere oplysninger...">${sag.kendsgerninger || ''}</textarea>
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('detalje').innerHTML = html;
+  }
+
+  let valgtStatus = null;
+  function opdaterForsvarer(val) {
+    if (val && val !== 'anden') {
+      document.getElementById('red-forsvarer').value = val;
+    }
+  }
+  function vaelgStatus(status, el) {
+    valgtStatus = status;
+    document.querySelectorAll('.status-valg').forEach(v => v.classList.remove('aktiv'));
+    el.classList.add('aktiv');
+  }
+
+  async function gemRedigeringer(id) {
+    const anklager      = document.getElementById('red-anklager')?.value.trim();
+    const forsvarer     = document.getElementById('red-forsvarer')?.value.trim();
+    const kendsgerninger= document.getElementById('red-kendsgerninger')?.value.trim();
+    const sag           = alleAager.find(s => s.id === id);
+    const status        = valgtStatus || sag?.status || 'afventer';
+
+    try {
+      const r = await fetch(`${backendUrl}/data/retssager/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ anklager_navn: anklager, forsvarer, kendsgerninger, status })
+      });
+      if (r.ok) {
+        toast('Gemt', 'Sagen er opdateret', 'succes');
+        valgtStatus = null;
+        hentSager();
+      } else {
+        const res = await r.json();
+        toast('Fejl', res.fejl || 'Ukendt fejl', 'fejl');
+      }
+    } catch { toast('Fejl', 'Serverfejl', 'fejl'); }
+  }
+
+  async function afsigDom(id, status) {
+    const dom   = document.getElementById('dom-tekst')?.value.trim();
+    const straf = document.getElementById('dom-straf')?.value.trim();
+    if (!dom) { toast('Mangler info', 'Beskriv dommen', 'fejl'); return; }
+
+    try {
+      const r = await fetch(`${backendUrl}/data/retssager/${id}/dom`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ dom, straf, status })
+      });
+      if (r.ok) {
+        toast('Dom afsagt', status === 'frikendt' ? 'Frikendt' : 'Skyldig', status === 'frikendt' ? 'info' : 'succes');
+        hentSager();
+      }
+    } catch { toast('Fejl', 'Noget gik galt', 'fejl'); }
+  }
+
+  
+
+  // PostMessage kommunikation med parent
+  let _init = false;
+  window.addEventListener('message', e => {
+    const m = e.data || {};
+    if (m.type === 'init' && m.token) {
+      token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger || null;
+      if (!_init) { _init = true; startSide(); }
+    }
+    if (m.type === 'cab_opdatering' && typeof onCabOpdatering === 'function') onCabOpdatering();
+  });
+  window.parent.postMessage({ type: 'klar' }, '*');
+  // Fallback
+  setTimeout(() => { if (!_init) { try { token = window.parent.token || ''; backendUrl = ''; } catch{} if (token) { _init = true; startSide(); } } }, 800);
+  function toast(t, x, k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}}, '*'); } catch{} }
+</script>
+</body>
+</html>

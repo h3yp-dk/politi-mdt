@@ -1,0 +1,284 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+body { display: grid; grid-template-columns: 280px 1fr; height: 100vh; overflow: hidden; background: var(--bg); }
+.soege-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px; gap: 10px; overflow-y: auto; background: var(--panel); }
+.soege-felt { display: flex; gap: 8px; }
+.soege-felt input { flex: 1; background: var(--panel2); border: 1px solid var(--border2); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 13px; padding: 8px 10px; border-radius: 5px; outline: none; letter-spacing: 1px; }
+.soege-felt input:focus { border-color: var(--accent); }
+.soege-felt input::placeholder { color: var(--muted2); font-family: 'Rajdhani', sans-serif; letter-spacing: 0; font-size: 13px; }
+.historik-item { padding: 7px 10px; background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; color: var(--text); font-family: 'Share Tech Mono', monospace; display: flex; justify-content: space-between; }
+.historik-item:hover { border-color: var(--border2); }
+.resultat-panel { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.tom-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; color: var(--muted); }
+.tom-state-ikon { font-size: 52px; opacity: 0.2; }
+.person-header { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; display: flex; align-items: center; gap: 16px; }
+.person-initialer { width: 52px; height: 52px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; color: white; flex-shrink: 0; }
+.person-navn { font-size: 20px; font-weight: 700; color: var(--white); }
+.person-flags { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stat-boks { background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; text-align: center; }
+.stat-tal { font-size: 24px; font-weight: 700; color: var(--white); }
+.stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+.stat-boks.rod .stat-tal { color: var(--red); }
+.stat-boks.gul .stat-tal { color: var(--yellow); }
+.sektion { background: var(--panel); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.sektion-header { padding: 10px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.sektion-titel { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.sektion-antal { font-size: 11px; color: var(--muted2); }
+.sektion-tom { padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
+.raekke { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.raekke:last-child { border-bottom: none; }
+.raekke-hoved { flex: 1; min-width: 0; }
+.raekke-titel { font-size: 13px; color: var(--white); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.raekke-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.raekke-dato { font-size: 11px; color: var(--muted2); white-space: nowrap; text-align: right; }
+.raekke-beloeb { font-size: 14px; font-weight: 700; color: var(--yellow); text-align: right; }
+</style>
+</head>
+<body>
+
+<div class="soege-panel">
+  <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Opslag</div>
+  <div class="soege-felt">
+    <input type="text" id="soege-input" placeholder="Indtast CPR-nummer..." autocomplete="off">
+    <button class="btn btn-primary" id="soeg-knap">Sog</button>
+  </div>
+  <div style="font-size:11px;color:var(--muted2);">Format: DDMMAAAA-XXXX</div>
+  <div id="historik-sektion" style="display:none;margin-top:8px;">
+    <div style="font-size:10px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Seneste opslag</div>
+    <div id="historik-liste" style="display:flex;flex-direction:column;gap:5px;"></div>
+  </div>
+</div>
+
+<div class="resultat-panel" id="resultat">
+  <div class="tom-state">
+    <div class="tom-state-ikon">&#128282;</div>
+    <div style="font-size:14px;">Indtast et CPR-nummer</div>
+    <div style="font-size:12px;color:var(--muted2);">Format: DDMMAAAA-XXXX</div>
+  </div>
+</div>
+
+<script>
+var token = '';
+var backendUrl = '';
+var historik = [];
+var _init = false;
+
+try { historik = JSON.parse(localStorage.getItem('opslag_historik') || '[]'); } catch(e) {}
+
+function init(tok, url, bruger) {
+  token = tok;
+  backendUrl = url || 'https://dk-politimdt-production.up.railway.app';
+  if (!_init) {
+    _init = true;
+    document.getElementById('soege-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') soeg();
+    });
+    document.getElementById('soeg-knap').addEventListener('click', soeg);
+    visHistorik();
+  }
+}
+
+window.addEventListener('message', function(e) {
+  var m = e.data || {};
+  if (m.type === 'init' && m.token) {
+    init(m.token, m.backend, m.bruger);
+  }
+});
+
+window.parent.postMessage({ type: 'klar' }, '*');
+
+setTimeout(function() {
+  if (!_init) {
+    try {
+      var t = window.parent.token || '';
+      if (t) init(t, 'https://dk-politimdt-production.up.railway.app', null);
+    } catch(e) {}
+  }
+}, 600);
+
+function toast(t, x, k) {
+  try { window.parent.postMessage({ type: 'toast', data: { titel: t, tekst: x, klasse: k } }, '*'); } catch(e) {}
+}
+
+async function soeg() {
+  var q = document.getElementById('soege-input').value.trim();
+  if (!q) return;
+  var res = document.getElementById('resultat');
+  res.innerHTML = '<div class="tom-state"><div style="font-size:36px;">&#8635;</div><div style="font-size:13px;margin-top:8px;">Soeger...</div></div>';
+  await soegCPR(q);
+}
+
+async function soegCPR(cpr) {
+  var res = document.getElementById('resultat');
+
+  var idR;
+  try {
+    idR = await fetch(backendUrl + '/data/identifikation/cpr/' + encodeURIComponent(cpr), {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+  } catch(e) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon">&#10060;</div><div>Serverfejl: ' + e.message + '</div></div>';
+    return;
+  }
+
+  if (!idR.ok) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon" style="font-size:48px;opacity:0.3;">&#128282;</div><div style="font-size:15px;margin-top:4px;">CPR-nummer ikke fundet</div><div style="font-size:12px;color:var(--muted2);margin-top:6px;">' + cpr + '</div></div>';
+    return;
+  }
+
+  var idKort = await idR.json();
+  var navn = idKort.navn || idKort.rp_navn || idKort.roblox_navn || '';
+  var qLower = navn.toLowerCase().trim();
+
+  gemHistorik(cpr);
+
+  var data = null;
+  var discordBoder = [];
+  var discordRapporter = [];
+
+  try {
+    var alle = await Promise.all([
+      fetch(backendUrl + '/data/person/' + encodeURIComponent(navn), { headers: { Authorization: 'Bearer ' + token } }).catch(function() { return null; }),
+      fetch(backendUrl + '/discord/boeder', { headers: { Authorization: 'Bearer ' + token } }).catch(function() { return null; }),
+      fetch(backendUrl + '/discord/rapporter', { headers: { Authorization: 'Bearer ' + token } }).catch(function() { return null; })
+    ]);
+
+    if (alle[0] && alle[0].ok) { try { data = await alle[0].json(); } catch(e) {} }
+
+    if (alle[1] && alle[1].ok) {
+      try {
+        var bMsgs = await alle[1].json();
+        for (var i = 0; i < bMsgs.length; i++) {
+          var t1 = ((bMsgs[i].titel||'') + JSON.stringify(bMsgs[i].embeds||'')).toLowerCase();
+          if (qLower && t1.indexOf(qLower) !== -1) discordBoder.push(bMsgs[i]);
+          else if (t1.indexOf(cpr.split('-').join('')) !== -1) discordBoder.push(bMsgs[i]);
+        }
+      } catch(e) {}
+    }
+
+    if (alle[2] && alle[2].ok) {
+      try {
+        var rMsgs = await alle[2].json();
+        for (var i = 0; i < rMsgs.length; i++) {
+          var t2 = ((rMsgs[i].titel||'') + JSON.stringify(rMsgs[i].embeds||'')).toLowerCase();
+          if (qLower && t2.indexOf(qLower) !== -1) discordRapporter.push(rMsgs[i]);
+        }
+      } catch(e) {}
+    }
+  } catch(e) {}
+
+  var boder = (data && data.boeder) || [];
+  var anholdelser = (data && data.anholdelser) || [];
+  var ubetalt = 0;
+  for (var i = 0; i < boder.length; i++) {
+    if (boder[i].status === 'ubetalt') ubetalt += Number(boder[i].beloeb) || 0;
+  }
+
+  var html = '';
+
+  // Header
+  var init1 = (navn || '?').charAt(0).toUpperCase();
+  html += '<div class="person-header"><div class="person-initialer">' + init1 + '</div>';
+  html += '<div style="flex:1"><div class="person-navn">' + (navn || 'Ukendt') + '</div>';
+  html += '<div class="person-flags">';
+  html += '<span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#60a5fa;font-family:\'Share Tech Mono\',monospace;">' + (idKort.cpr || cpr) + '</span>';
+  if (ubetalt > 0) html += ' <span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:#facc15;">Kr. ' + ubetalt.toLocaleString('da-DK') + ' ubetalt</span>';
+  if (anholdelser.length > 0) html += ' <span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;">' + anholdelser.length + ' anholdelse' + (anholdelser.length > 1 ? 'r' : '') + '</span>';
+  if (ubetalt === 0 && anholdelser.length === 0) html += ' <span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#4ade80;">Ingen advarsler</span>';
+  html += '</div></div></div>';
+
+  // Identifikation
+  html += '<div class="sektion"><div class="sektion-header"><div class="sektion-titel">Identifikation</div></div>';
+  html += '<div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;">';
+  html += '<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Navn</div><div style="font-size:15px;font-weight:600;color:var(--white);">' + (idKort.navn || '—') + '</div></div>';
+  html += '<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">CPR-Nummer</div><div style="font-size:13px;font-weight:600;color:#60a5fa;font-family:\'Share Tech Mono\',monospace;">' + (idKort.cpr || cpr) + '</div></div>';
+  html += '<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Kon</div><div style="font-size:15px;font-weight:600;color:var(--white);">' + (idKort.kon || 'Mand') + '</div></div>';
+  html += '<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Adresse</div><div style="font-size:15px;font-weight:600;color:var(--white);">' + (idKort.adresse || 'Hjemlos') + '</div></div>';
+  html += '</div></div>';
+
+  // Stats
+  html += '<div class="stats-grid">';
+  html += '<div class="stat-boks ' + (boder.length > 0 ? 'gul' : '') + '"><div class="stat-tal">' + boder.length + '</div><div class="stat-lbl">Boder totalt</div></div>';
+  html += '<div class="stat-boks ' + (ubetalt > 0 ? 'rod' : '') + '"><div class="stat-tal">' + ubetalt.toLocaleString('da-DK') + '</div><div class="stat-lbl">Ubetalt kr</div></div>';
+  html += '<div class="stat-boks ' + (anholdelser.length > 0 ? 'rod' : '') + '"><div class="stat-tal">' + anholdelser.length + '</div><div class="stat-lbl">Anholdelser</div></div>';
+  html += '</div>';
+
+  // Bodehistorik
+  html += '<div class="sektion"><div class="sektion-header"><div class="sektion-titel">Bodehistorik</div><div class="sektion-antal">' + boder.length + ' poster</div></div>';
+  if (boder.length > 0) {
+    for (var i = 0; i < Math.min(boder.length, 10); i++) {
+      var b = boder[i];
+      var para = [];
+      try { para = JSON.parse(b.paragraffer || '[]'); } catch(e) {}
+      var bdt = b.oprettet ? new Date(b.oprettet).toLocaleDateString('da-DK') : '—';
+      var bCol = b.status === 'betalt' ? 'rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#4ade80;' : 'rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:#facc15;';
+      html += '<div class="raekke"><div class="raekke-hoved"><div class="raekke-titel">' + para.join(' · ') + '</div><div class="raekke-sub">' + b.bode_nr + ' · ' + (b.udstedt_af_navn || '—') + '</div></div><div style="text-align:right"><div class="raekke-beloeb">' + Number(b.beloeb).toLocaleString('da-DK') + ' kr</div><div class="raekke-dato">' + bdt + '</div><span style="display:inline-block;margin-top:3px;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;background:' + bCol + '">' + b.status + '</span></div></div>';
+    }
+  } else {
+    html += '<div class="sektion-tom">Ingen boder registreret</div>';
+  }
+  html += '</div>';
+
+  // Anholdelser
+  html += '<div class="sektion"><div class="sektion-header"><div class="sektion-titel">Anholdelser</div><div class="sektion-antal">' + anholdelser.length + ' poster</div></div>';
+  if (anholdelser.length > 0) {
+    for (var i = 0; i < anholdelser.length; i++) {
+      var a = anholdelser[i];
+      var pts = [];
+      try { pts = JSON.parse(a.anklage_punkter || '[]'); } catch(e) {}
+      var adt = a.oprettet ? new Date(a.oprettet).toLocaleDateString('da-DK') : '—';
+      var aCol = a.status === 'aktiv' ? 'rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#f87171;' : 'rgba(107,114,128,0.2);border:1px solid rgba(107,114,128,0.3);color:#9ca3af;';
+      html += '<div class="raekke"><div class="raekke-hoved"><div class="raekke-titel">' + pts.join(' · ') + '</div><div class="raekke-sub">' + a.rapport_nr + ' · ' + (a.betjent_navn || '—') + '</div></div><div style="text-align:right"><div class="raekke-dato">' + adt + '</div><span style="display:inline-block;margin-top:3px;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:700;background:' + aCol + '">' + (a.status || 'aktiv') + '</span></div></div>';
+    }
+  } else {
+    html += '<div class="sektion-tom">Ingen anholdelser registreret</div>';
+  }
+  html += '</div>';
+
+  // Rapporter
+  if (discordRapporter.length > 0) {
+    html += '<div class="sektion"><div class="sektion-header"><div class="sektion-titel">Rapporter</div><div class="sektion-antal">' + discordRapporter.length + ' poster</div></div>';
+    for (var i = 0; i < discordRapporter.length; i++) {
+      var mr = discordRapporter[i];
+      var emr = (mr.embeds && mr.embeds[0]) || {};
+      var tir = emr.titel || mr.titel || '—';
+      var dtr = mr.tid ? new Date(mr.tid).toLocaleDateString('da-DK') : '—';
+      html += '<div class="raekke"><div class="raekke-hoved"><div class="raekke-titel">' + tir + '</div></div><div class="raekke-dato">' + dtr + '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  res.innerHTML = html;
+}
+
+function gemHistorik(q) {
+  var ny = [q];
+  for (var i = 0; i < historik.length; i++) {
+    if (historik[i] !== q) ny.push(historik[i]);
+  }
+  historik = ny.slice(0, 6);
+  try { localStorage.setItem('opslag_historik', JSON.stringify(historik)); } catch(e) {}
+  visHistorik();
+}
+
+function visHistorik() {
+  var sek = document.getElementById('historik-sektion');
+  var liste = document.getElementById('historik-liste');
+  if (!sek || !liste || !historik.length) return;
+  sek.style.display = 'block';
+  var html = '';
+  for (var i = 0; i < historik.length; i++) {
+    var h = historik[i];
+    html += '<div class="historik-item" onclick="document.getElementById(\'soege-input\').value=\'' + h.replace(/'/g, '') + '\';soeg()"><span>' + h + '</span><span style="color:var(--muted2);">&#8629;</span></div>';
+  }
+  liste.innerHTML = html;
+}
+</script>
+</body>
+</html>

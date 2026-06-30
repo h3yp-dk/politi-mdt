@@ -1,0 +1,400 @@
+/* ─── Google Fonts ──────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+/* ─── Dansk Politi Tema ─────────────────────────────────────────────── */
+:root {
+  /* Primære farver — dansk politiblå */
+  --politi-navy:    #0d2240;
+  --politi-mørk:    #091829;
+  --politi-blå:     #1a3a5c;
+  --politi-lys:     #2d5a8e;
+
+  /* Accent */
+  --accent:         #1a6ef5;
+  --accent2:        #93c5fd;
+  --accent-glow:    rgba(26,110,245,0.1);
+
+  /* Status farver */
+  --green:          #22c55e;
+  --yellow:         #eab308;
+  --orange:         #f97316;
+  --red:            #ef4444;
+  --purple:         #a855f7;
+
+  /* Baggrunde */
+  --bg:             #091829;
+  --panel:          #0d2240;
+  --panel2:         #112a4d;
+  --panel3:         #162f54;
+
+  /* Kanter */
+  --border:         rgba(255,255,255,0.08);
+  --border2:        rgba(255,255,255,0.14);
+
+  /* Tekst */
+  --white:          #ffffff;
+  --text:           #cce0ff;
+  --muted:          #7a9bbf;
+  --muted2:         #4a6a8a;
+
+  /* CAB status farver */
+  --cab-offline:        #374151;
+  --cab-patrulje:       #22c55e;
+  --cab-tilgaengelig:   #22c55e;
+  --cab-optaget:        #eab308;
+  --cab-eftersaettelse: #3b82f6;
+  --cab-utilgaengelig:  #ef4444;
+  --cab-oos:            #6c7a96;
+}
+
+/* ─── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--politi-lys); border-radius: 3px; }
+
+/* ─── Typografi ─────────────────────────────────────────────────────── */
+.mono { font-family: 'Share Tech Mono', monospace; }
+
+/* ─── Kort / Panel ──────────────────────────────────────────────────── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 12px 16px;
+  background: var(--panel2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-titel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ─── Formularer ────────────────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; margin-bottom: 12px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+}
+
+input[type=text], input[type=email], input[type=password],
+input[type=number], input[type=tel], textarea, select {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  color: var(--white);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 14px;
+  padding: 9px 12px;
+  border-radius: 5px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(26,110,245,0.15);
+}
+
+input::placeholder, textarea::placeholder { color: var(--muted2); }
+textarea { resize: vertical; min-height: 80px; }
+select { cursor: pointer; }
+select option { background: var(--panel2); }
+
+/* ─── Knapper ───────────────────────────────────────────────────────── */
+.btn {
+  background: var(--politi-blå);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: var(--white);
+  padding: 8px 16px;
+  border-radius: 5px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn:hover { background: var(--politi-lys); border-color: rgba(255,255,255,0.2); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn:active { transform: translateY(1px); }
+
+.btn-block { width: 100%; justify-content: center; }
+.btn-lg { padding: 11px 20px; font-size: 14px; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+.btn-primary { background: var(--accent); border-color: transparent; }
+.btn-primary:hover { background: #1557d4; }
+
+.btn-green { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3); color: var(--green); }
+.btn-green:hover { background: rgba(34,197,94,0.25); }
+
+.btn-danger { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.25); color: var(--red); }
+.btn-danger:hover { background: rgba(239,68,68,0.2); }
+
+.btn-outline { background: transparent; border-color: var(--border2); color: var(--muted); }
+.btn-outline:hover { color: var(--text); border-color: var(--border); }
+
+/* ─── Badges ────────────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+}
+
+.badge-grøn   { background: rgba(34,197,94,0.12);  border-color: rgba(34,197,94,0.3);  color: #4ade80; }
+.badge-gul    { background: rgba(234,179,8,0.12);  border-color: rgba(234,179,8,0.3);  color: #facc15; }
+.badge-rød    { background: rgba(239,68,68,0.12);  border-color: rgba(239,68,68,0.3);  color: #f87171; }
+.badge-blå    { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3); color: #60a5fa; }
+.badge-grå    { background: rgba(107,114,128,0.2); border-color: rgba(107,114,128,0.3);color: #9ca3af; }
+.badge-lilla  { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.3); color: #c084fc; }
+
+/* ─── Divider ───────────────────────────────────────────────────────── */
+.divider-h { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* ─── Politi streger dekoration ─────────────────────────────────────── */
+.politi-streger {
+  position: absolute;
+  top: 0; left: 0;
+  width: 120px; height: 100%;
+  overflow: hidden;
+  opacity: 0.04;
+  pointer-events: none;
+}
+
+.politi-streger::before {
+  content: '';
+  position: absolute;
+  top: -20px; left: 20px;
+  width: 40px; height: 200%;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--white) 0px,
+    var(--white) 12px,
+    transparent 12px,
+    transparent 28px
+  );
+}
+
+/* ─── Animationer ───────────────────────────────────────────────────── */
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes fadeIn  { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes pulse   { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes pulsRed { 0%,100% { border-color: var(--red); } 50% { border-color: #fca5a5; } }
+
+.spinner {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 3px solid var(--border2);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
+}
+
+/* ─── Login / Registrer fælles ──────────────────────────────────────── */
+.auth-bg {
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(13,34,64,0.97) 0%, rgba(9,24,41,0.98) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-bg::before {
+  content: '';
+  position: fixed;
+  top: -50%; right: -20%;
+  width: 600px; height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(26,110,245,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.auth-streger {
+  position: fixed;
+  top: 0; right: 0;
+  width: 280px; height: 100%;
+  opacity: 0.035;
+  background: repeating-linear-gradient(
+    -55deg,
+    var(--white) 0px,
+    var(--white) 14px,
+    transparent 14px,
+    transparent 32px
+  );
+  pointer-events: none;
+}
+
+.auth-boks {
+  background: var(--panel);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    0 25px 60px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(26,110,245,0.08);
+}
+
+.auth-header {
+  background: var(--politi-navy);
+  border-bottom: 3px solid var(--accent);
+  padding: 24px 28px;
+  text-align: center;
+  position: relative;
+}
+
+.auth-logo {
+  width: 72px; height: 72px;
+  margin: 0 auto 14px;
+}
+
+.auth-titel {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--white);
+  letter-spacing: 6px;
+  text-transform: uppercase;
+}
+
+.auth-sub {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-top: 5px;
+}
+
+.auth-form { padding: 24px 28px; }
+
+.auth-input {
+  width: 100%;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 2px solid rgba(255,255,255,0.15);
+  color: var(--white);
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  padding: 11px 14px;
+  border-radius: 5px;
+  outline: none;
+  box-sizing: border-box;
+  transition: all 0.2s;
+  margin-bottom: 14px;
+}
+
+.auth-input:focus {
+  border-color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: rgba(26,110,245,0.05);
+  box-shadow: 0 0 0 2px rgba(26,110,245,0.12);
+}
+
+.auth-input::placeholder { color: var(--muted2); }
+
+.auth-knap {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  padding: 13px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+  margin-top: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-knap:hover { background: #1557d4; box-shadow: 0 4px 15px rgba(26,110,245,0.3); }
+.auth-knap:active { transform: translateY(1px); }
+.auth-knap:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.auth-footer {
+  padding: 14px 28px;
+  border-top: 1px solid var(--border);
+  background: var(--panel2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.auth-footer-tekst { font-size: 12px; color: var(--muted); }
+
+.auth-reg-knap {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text);
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.auth-reg-knap:hover { border-color: var(--accent); color: var(--accent2); }
+
+.auth-fejl {
+  background: rgba(239,68,68,0.1);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-left: 3px solid var(--red);
+  border-radius: 5px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: #fca5a5;
+  margin-bottom: 16px;
+}
+
+/* ─── Lbl til felter i auth ─────────────────────────────────────────── */
+.auth-lbl {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted2);
+  margin-bottom: 5px;
+}

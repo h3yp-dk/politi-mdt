@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politi MDT — Registrer</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; overflow-y:auto; }
+  body::before { content:''; position:fixed; top:0; left:0; right:0; bottom:0; background: linear-gradient(160deg, #0d2240 0%, #091829 60%, #0a1e36 100%); z-index:-1; }
+  .auth-streger { position:fixed; top:0; right:0; width:300px; height:100%; opacity:0.04; pointer-events:none; background: repeating-linear-gradient(-55deg, white 0px, white 14px, transparent 14px, transparent 32px); }
+  .boks { width:520px; animation: fadeIn 0.3s ease; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .rang-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
+  .rang-valg { background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.1); border-radius:5px; padding:9px 8px; cursor:pointer; text-align:center; font-size:12px; font-weight:600; color:var(--muted); transition:all 0.15s; }
+  .rang-valg:hover { border-color:rgba(255,255,255,0.2); color:var(--text); }
+  .rang-valg.valgt { border-color:var(--accent); background:rgba(26,110,245,0.12); color:var(--accent2); }
+  .d-header { display:flex; align-items:center; gap:14px; padding:16px 28px; background:var(--politi-navy); border-bottom:1px solid var(--border); }
+  .d-avatar { width:44px; height:44px; border-radius:50%; overflow:hidden; background:var(--accent); display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; color:white; flex-shrink:0; border:2px solid rgba(255,255,255,0.15); }
+  .d-avatar img { width:100%; height:100%; object-fit:cover; }
+  .sek { font-size:10px; color:var(--muted2); letter-spacing:2px; text-transform:uppercase; padding-bottom:8px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+  .tilbage { background:none; border:none; color:var(--muted2); cursor:pointer; font-family:'Rajdhani',sans-serif; font-size:12px; padding:0; text-decoration:underline; display:block; text-align:center; margin-top:10px; }
+  .tilbage:hover { color:var(--text); }
+  .afdeling-grid { display:flex; flex-direction:column; gap:4px; max-height:200px; overflow-y:auto; background:var(--panel2); border:1px solid var(--border2); border-radius:5px; padding:6px; }
+  .afdeling-valg { display:flex; align-items:center; gap:8px; padding:5px 8px; border-radius:4px; cursor:pointer; transition:background 0.1s; }
+  .afdeling-valg:hover { background:rgba(255,255,255,0.05); }
+  .afdeling-valg input[type=checkbox] { width:14px; height:14px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
+  .afdeling-valg label { font-size:12px; color:var(--text); cursor:pointer; margin:0; }
+</style>
+</head>
+<body>
+<div class="auth-streger"></div>
+<div class="boks">
+  <div class="auth-boks">
+
+    <div class="auth-header">
+      <img src="/assets/logo_primær.png" class="auth-logo" style="width:52px;height:52px;" alt="Politi">
+      <div class="auth-titel">Opret Konto</div>
+      <div class="auth-sub">Dansk Politi MDT</div>
+    </div>
+
+    <div class="d-header">
+      <div class="d-avatar" id="d-avatar">🚔</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;color:var(--white)" id="d-navn">Discord bruger</div>
+        <div style="font-size:11px;color:var(--green);margin-top:2px;" id="d-header-sub">✓ Discord-rolle verificeret</div>
+      </div>
+    </div>
+
+    <div class="auth-form">
+      <div id="fejl-boks"></div>
+
+      <div class="sek">Login oplysninger</div>
+      <div class="grid2">
+        <div>
+          <div class="auth-lbl">Email *</div>
+          <input class="auth-input" type="email" id="email" placeholder="betjent@politi.dk" style="margin-bottom:0">
+        </div>
+        <div>
+          <div class="auth-lbl">Adgangskode * (min. 6)</div>
+          <input class="auth-input" type="password" id="pw" placeholder="••••••••" style="margin-bottom:0">
+        </div>
+      </div>
+
+      <div class="divider-h"></div>
+      <div class="sek">Tjenesteoplysninger</div>
+
+      <div class="grid2">
+        <div>
+          <div class="auth-lbl">Fornavn *</div>
+          <input class="auth-input" id="fornavn" placeholder="Fornavn" style="margin-bottom:0">
+        </div>
+        <div>
+          <div class="auth-lbl">Efternavn *</div>
+          <input class="auth-input" id="efternavn" placeholder="Efternavn" style="margin-bottom:0">
+        </div>
+      </div>
+
+      <div class="grid2" style="margin-top:12px;">
+        <div>
+          <div class="auth-lbl">Tjenestenummer *</div>
+          <input class="auth-input" id="badge" placeholder="G2512" style="font-family:'Share Tech Mono',monospace;margin-bottom:0">
+        </div>
+        <div>
+          <div class="auth-lbl">Vognummer</div>
+          <input class="auth-input" id="vognummer" placeholder="B-1102" style="font-family:'Share Tech Mono',monospace;margin-bottom:0">
+        </div>
+      </div>
+
+      <div class="divider-h"></div>
+      <div class="sek">Rang</div>
+      <div class="rang-grid">
+        <div class="rang-valg" onclick="vaelgRang(this,'Rigspolitichef')">Rigspolitichef</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Vice Rigspolitichef')">Vice Rigspolitichef</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Politidirektør')">Politidirektør</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Stabschef')">Stabschef</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Chef Politiinspektør')">Chef Politiinspektør</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Chef Anklager')">Chef Anklager</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Politiinspektør')">Politiinspektør</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Vice Politiinspektør')">Vice Politiinspektør</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Politikommissær')">Politikommissær</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Politi Assistent af 1. Grad')">Politi Assistent af 1. Grad</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Politi Assistent')">Politi Assistent</div>
+        <div class="rang-valg" onclick="vaelgRang(this,'Politi Betjent')">Politi Betjent</div>
+        <div class="rang-valg valgt" onclick="vaelgRang(this,'Politi Kadet')">Politi Kadet</div>
+      </div>
+
+      <div class="divider-h"></div>
+      <div class="sek">Afdeling</div>
+      <div class="afdeling-grid" id="afdeling-grid">
+        <div class="afdeling-valg"><input type="checkbox" id="afd-0" value="Reaktionssektionen"><label for="afd-0">Reaktionssektionen</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-1" value="Beredskabssektionen"><label for="afd-1">Beredskabssektionen</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-2" value="Kriminalteknisk Støttesektion"><label for="afd-2">Kriminalteknisk Støttesektion</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-3" value="Operativ Færdselssektion"><label for="afd-3">Operativ Færdselssektion</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-4" value="Operativ Special Afdeling"><label for="afd-4">Operativ Special Afdeling</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-5" value="Hundeføresektionen"><label for="afd-5">Hundeføresektionen</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-6" value="Indsatsledersektionen"><label for="afd-6">Indsatsledersektionen</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-7" value="Indsatslederassistentsektionen"><label for="afd-7">Indsatslederassistentsektionen</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-8" value="Rigspolitiet"><label for="afd-8">Rigspolitiet</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-9" value="Politiets Uddannelses og Undervisningscenter: Underviser"><label for="afd-9">PUUC: Underviser</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-10" value="Politiets Uddannelses og Undervisningscenter: Vejleder"><label for="afd-10">PUUC: Vejleder</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-11" value="Aktionsstyrken (PET)"><label for="afd-11">Aktionsstyrken (PET)</label></div>
+        <div class="afdeling-valg"><input type="checkbox" id="afd-12" value="Efterforsker (PET)"><label for="afd-12">Efterforsker (PET)</label></div>
+      </div>
+
+      <div id="ingen-discord-note" style="display:none;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);border-left:3px solid #ef4444;border-radius:5px;padding:10px 14px;font-size:12px;color:#fca5a5;margin-top:12px;">
+        ⚠ Ingen Discord-verificering fundet. <a href="/auth/login" style="color:var(--accent2)">Klik her for at verificere →</a>
+      </div>
+
+      <button class="auth-knap" onclick="opret()" id="opret-knap" style="margin-top:20px;">
+        Opret konto og log ind →
+      </button>
+      <button class="tilbage" onclick="window.location.href='/login'">← Tilbage til login</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var tmpToken = '', valgtRang = 'Politi Kadet';
+
+function init() {
+  tmpToken = new URLSearchParams(location.search).get('tmp') || '';
+  if (!tmpToken) {
+    document.getElementById('d-navn').textContent = 'Ikke verificeret';
+    document.getElementById('d-header-sub').textContent = '⚠ Skal verificeres med Discord';
+    document.getElementById('d-header-sub').style.color = 'var(--yellow)';
+    document.getElementById('ingen-discord-note').style.display = 'block';
+    document.getElementById('opret-knap').style.display = 'none';
+    return;
+  }
+  try {
+    var p = JSON.parse(atob(tmpToken.split('.')[1]));
+    document.getElementById('d-navn').textContent = p.discord_navn || 'Discord bruger';
+    if (p.discord_id && p.discord_avatar) {
+      document.getElementById('d-avatar').innerHTML =
+        '<img src="https://cdn.discordapp.com/avatars/' + p.discord_id + '/' + p.discord_avatar + '.png?size=64">';
+    }
+  } catch {}
+}
+
+function vaelgRang(el, r) {
+  document.querySelectorAll('.rang-valg').forEach(function(v) { v.classList.remove('valgt'); });
+  el.classList.add('valgt');
+  valgtRang = r;
+}
+
+function hentAfdelinger() {
+  var vals = [];
+  document.querySelectorAll('#afdeling-grid input[type=checkbox]:checked').forEach(function(cb) {
+    vals.push(cb.value);
+  });
+  return vals.join(', ');
+}
+
+async function opret() {
+  document.getElementById('fejl-boks').innerHTML = '';
+  var email     = document.getElementById('email').value.trim();
+  var pw        = document.getElementById('pw').value;
+  var fornavn   = document.getElementById('fornavn').value.trim();
+  var efternavn = document.getElementById('efternavn').value.trim();
+  var badge     = document.getElementById('badge').value.trim();
+  var vognummer = document.getElementById('vognummer').value.trim();
+
+  if (!email || !pw || !fornavn || !efternavn || !badge) {
+    document.getElementById('fejl-boks').innerHTML = '<div class="auth-fejl">Udfyld alle felter markeret med *</div>';
+    return;
+  }
+  if (pw.length < 6) {
+    document.getElementById('fejl-boks').innerHTML = '<div class="auth-fejl">Adgangskode skal være mindst 6 tegn</div>';
+    return;
+  }
+
+  var knap = document.getElementById('opret-knap');
+  knap.disabled = true; knap.textContent = 'Opretter konto...';
+
+  try {
+    var r = await fetch('/auth/opret-konto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tmp_token:    tmpToken,
+        email:        email,
+        adgangskode:  pw,
+        fornavn:      fornavn,
+        efternavn:    efternavn,
+        badge_nummer: badge.toUpperCase(),
+        kaldesignal:  (vognummer || badge).toUpperCase(),
+        rang:         valgtRang,
+        afdeling:     hentAfdelinger()
+      })
+    });
+    var data = await r.json();
+    if (r.ok) {
+      localStorage.setItem('mdt_token', data.token);
+      window.location.href = '/app';
+    } else {
+      document.getElementById('fejl-boks').innerHTML = '<div class="auth-fejl">' + (data.fejl || 'Fejl ved oprettelse') + '</div>';
+      knap.disabled = false; knap.textContent = 'Opret konto og log ind →';
+    }
+  } catch {
+    document.getElementById('fejl-boks').innerHTML = '<div class="auth-fejl">Serverfejl</div>';
+    knap.disabled = false; knap.textContent = 'Opret konto og log ind →';
+  }
+}
+
+init();
+</script>
+</body>
+</html>

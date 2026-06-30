@@ -1,0 +1,1066 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* ── LISTE ─────────────────────── */
+.liste-side {
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+.liste-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+}
+.liste-header h2 {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 3px; text-transform: uppercase;
+  color: var(--muted); flex: 1;
+}
+.liste-scroll { overflow-y: auto; flex: 1; }
+.rapport-item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  display: flex; gap: 10px; align-items: flex-start;
+  transition: background 0.1s;
+}
+.rapport-item:hover { background: var(--panel2); }
+.rapport-item.valgt { background: rgba(99,179,237,0.06); border-left: 3px solid var(--accent); }
+.rapport-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.rapport-titel { font-size: 13px; font-weight: 600; color: var(--white); }
+.rapport-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.rapport-snippet { font-size: 11px; color: var(--muted2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 230px; }
+
+/* ── HOVED ──────────────────────── */
+.hoved-side { display: flex; flex-direction: column; overflow: hidden; }
+.hoved-header {
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
+  background: var(--panel); flex-shrink: 0;
+  display: flex; align-items: center; gap: 10px;
+}
+.hoved-header h2 {
+  font-size: 11px; font-weight: 600; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--muted); flex: 1;
+}
+.hoved-scroll { overflow-y: auto; flex: 1; padding: 20px; }
+.tom-valg {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  height: 100%; gap: 14px; color: var(--muted);
+}
+.tom-valg-ikon { font-size: 52px; opacity: 0.2; }
+
+/* ── TYPE MODAL ─────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.78);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.modal-overlay.vis { opacity: 1; pointer-events: all; }
+.type-modal {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; width: 480px; max-width: 95vw; padding: 28px;
+  transform: translateY(12px); transition: transform 0.2s;
+}
+.modal-overlay.vis .type-modal { transform: translateY(0); }
+.type-modal h3 {
+  font-size: 11px; font-weight: 600; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: 20px;
+}
+.type-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 20px; }
+.type-valg {
+  padding: 14px 8px; background: var(--panel2); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; text-align: center; transition: all 0.15s;
+}
+.type-valg:hover { border-color: var(--border2); }
+.type-valg.valgt { border-color: var(--accent); background: rgba(99,179,237,0.08); }
+.type-ikon { font-size: 20px; margin-bottom: 5px; }
+.type-navn { font-size: 11px; color: var(--muted); font-weight: 500; }
+.type-valg.valgt .type-navn { color: var(--accent); }
+
+/* ── FORMULAR FULLSCREEN ─────────── */
+.form-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  z-index: 90; display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none; transition: opacity 0.2s;
+}
+.form-overlay.vis { opacity: 1; pointer-events: all; }
+.form-topbar {
+  height: 50px; border-bottom: 1px solid var(--border); background: var(--panel);
+  display: flex; align-items: center; padding: 0 20px; gap: 14px; flex-shrink: 0;
+}
+.form-type-label { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--white); }
+.form-nr-label { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--muted); }
+.status-select {
+  margin-left: auto; background: var(--panel2); border: 1px solid var(--border);
+  color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 12px;
+  padding: 5px 10px; border-radius: 5px; outline: none; cursor: pointer;
+}
+.form-scroll {
+  overflow-y: auto; flex: 1; padding: 20px;
+  max-width: 900px; width: 100%; margin: 0 auto; box-sizing: border-box;
+}
+
+/* Sektioner */
+.fs { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+.fs-head {
+  padding: 9px 16px; background: var(--politi-navy, #0a1628);
+  border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  display: flex; align-items: center; gap: 8px;
+}
+.fs-body { padding: 14px 16px; }
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fg3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.fg4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+.ff label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 5px; }
+.ff input, .ff select, .ff textarea {
+  width: 100%; box-sizing: border-box; background: var(--panel2);
+  border: 1px solid var(--border2, #2d3a50); color: var(--text);
+  font-family: 'Rajdhani', sans-serif; font-size: 13px; padding: 7px 10px;
+  border-radius: 5px; outline: none; transition: border-color 0.15s;
+}
+.ff input:focus, .ff select:focus, .ff textarea:focus { border-color: var(--accent); }
+.ff textarea { resize: vertical; min-height: 80px; }
+.ff input.ro { opacity: 0.55; }
+.check-r { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.check-r input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+.check-r label { font-size: 11px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; margin-bottom: 0 !important; }
+
+/* Betjente */
+.betjent-liste { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.betjent-item { display: flex; align-items: center; gap: 8px; background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 5px 10px; }
+.betjent-navn { flex: 1; font-size: 12px; color: var(--text); }
+.betjent-fjern { color: var(--muted); cursor: pointer; font-size: 13px; }
+.betjent-fjern:hover { color: #f87171; }
+.tilfoej-row { display: flex; gap: 6px; }
+.tilfoej-row input { flex: 1; background: var(--panel2); border: 1px solid var(--border2); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 13px; padding: 6px 10px; border-radius: 4px; outline: none; }
+.tilfoej-row input:focus { border-color: var(--accent); }
+
+/* ── ARREST / CITATION LAYOUT ──── */
+.split-layout { display: grid; grid-template-columns: 1fr 1fr; }
+.split-venstre { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.split-soeg { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.split-soeg input {
+  width: 100%; box-sizing: border-box; background: var(--panel2);
+  border: 1px solid var(--border2); color: var(--text);
+  font-family: 'Rajdhani', sans-serif; font-size: 12px; padding: 6px 10px;
+  border-radius: 4px; outline: none;
+}
+.split-soeg input:focus { border-color: var(--accent); }
+.split-liste { overflow-y: auto; max-height: 300px; }
+
+.gruppe-navn {
+  padding: 6px 12px; font-size: 10px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+  background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border);
+  cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none;
+}
+.gruppe-navn:hover { background: rgba(0,0,0,0.35); }
+.gruppe-navn .pil { font-size: 9px; transition: transform 0.15s; color: var(--muted2); }
+.gruppe-navn.aaben .pil { transform: rotate(90deg); }
+.gruppe-items { display: none; }
+.gruppe-items.vis { display: block; }
+
+.punkt {
+  padding: 7px 12px 7px 18px; font-size: 12px; color: var(--text);
+  cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.1s; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.punkt:hover { background: rgba(99,179,237,0.07); }
+.punkt-charge:hover { background: rgba(99,179,237,0.07); }
+.punkt-citation:hover { background: rgba(234,179,8,0.06); }
+.punkt-meta { font-size: 10px; color: var(--muted2); white-space: nowrap; }
+.boed-meta { font-size: 11px; color: #eab308; font-weight: 600; white-space: nowrap; }
+.arrestable-tag { font-size: 9px; color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.2); border-radius: 3px; padding: 1px 5px; }
+
+.split-hoejre { display: flex; flex-direction: column; }
+.split-hoejre-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.valgte-liste { padding: 8px 10px; overflow-y: auto; max-height: 300px; display: flex; flex-direction: column; gap: 4px; }
+.ingen-valgt { padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
+
+.valgt-charge {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.2);
+  border-radius: 5px; padding: 7px 10px;
+}
+.valgt-charge-navn { flex: 1; font-size: 12px; color: var(--white); line-height: 1.3; }
+.valgt-charge-straf { font-size: 10px; color: var(--muted2); margin-top: 2px; }
+.valgt-fjern { color: var(--muted); cursor: pointer; font-size: 13px; flex-shrink: 0; }
+.valgt-fjern:hover { color: #f87171; }
+
+.valgt-citation {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.2);
+  border-radius: 5px; padding: 7px 10px;
+}
+.valgt-citation-navn { flex: 1; font-size: 12px; color: var(--white); }
+.valgt-citation-boed { font-size: 11px; color: #eab308; font-weight: 600; }
+
+.citation-total-bar {
+  padding: 10px 14px; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.citation-total-lbl { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.citation-total-val { font-size: 16px; font-weight: 700; color: #eab308; }
+
+/* Transport under arrest */
+.transport-under { border-top: 1px solid var(--border); padding: 14px 16px; }
+
+/* Footer */
+.form-footer {
+  padding: 10px 20px; border-top: 1px solid var(--border); background: var(--panel);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+
+/* Visning */
+.v-sek { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.v-head { padding: 9px 16px; background: var(--politi-navy,#0a1628); border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.v-body { padding: 14px 16px; }
+.v-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.v-felt label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 3px; }
+.v-felt .val { font-size: 13px; color: var(--white); font-weight: 500; }
+.ctag { display: inline-flex; align-items: center; background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.25); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: #c084fc; margin: 3px; }
+.btag { display: inline-flex; align-items: center; background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: #eab308; margin: 3px; }
+
+  .afdeling-grid { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; background: var(--panel2); border: 1px solid var(--border2); border-radius: 5px; padding: 6px; }
+  .afdeling-valg { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
+  .afdeling-valg:hover { background: rgba(255,255,255,0.05); }
+  .afdeling-valg input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .afdeling-valg label { font-size: 12px; color: var(--text); cursor: pointer; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- LISTE -->
+<div class="liste-side">
+  <div class="liste-header">
+    <h2>Rapporter</h2>
+    <button class="btn btn-sm" onclick="hentRapporter()">↻</button>
+    <button class="btn btn-sm btn-primary" onclick="aabneTypeModal()">+ Ny</button>
+  </div>
+  <div class="liste-scroll" id="liste">
+    <div style="padding:20px;text-align:center;color:var(--muted)">Indlæser...</div>
+  </div>
+</div>
+
+<!-- HOVED -->
+<div class="hoved-side">
+  <div class="hoved-header"><h2>Rapportdetaljer</h2></div>
+  <div class="hoved-scroll" id="hoved-indhold">
+    <div class="tom-valg">
+      <div class="tom-valg-ikon">📁</div>
+      <p>Vælg en rapport eller opret en ny</p>
+      <button class="btn btn-primary" id="opret-knap-hoved">+ Opret ny rapport</button>
+    </div>
+  </div>
+</div>
+
+<!-- TYPE MODAL -->
+<div class="modal-overlay" id="type-modal">
+  <div class="type-modal">
+    <h3>Vælg rapporttype:</h3>
+    <div class="type-grid">
+      <div class="type-valg" onclick="vaelgType('hændelse',this)"><div class="type-ikon">🔵</div><div class="type-navn">Hændelse</div></div>
+      <div class="type-valg" onclick="vaelgType('trafikulykke',this)"><div class="type-ikon">🚗</div><div class="type-navn">Trafikulykke</div></div>
+      <div class="type-valg" onclick="vaelgType('indbrud',this)"><div class="type-ikon">🏠</div><div class="type-navn">Indbrud</div></div>
+      <div class="type-valg" onclick="vaelgType('vold',this)"><div class="type-ikon">🥊</div><div class="type-navn">Vold</div></div>
+      <div class="type-valg" onclick="vaelgType('forfølgelse',this)"><div class="type-ikon">🚨</div><div class="type-navn">Forfølgelse</div></div>
+      <div class="type-valg" onclick="vaelgType('røveri',this)"><div class="type-ikon">🏦</div><div class="type-navn">Røveri</div></div>
+
+      <div class="type-valg" onclick="vaelgType('skyderi',this)"><div class="type-ikon">🔫</div><div class="type-navn">Skyderi</div></div>
+      <div class="type-valg" onclick="vaelgType('andet',this)"><div class="type-ikon">📄</div><div class="type-navn">Andet</div></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-outline" onclick="lukTypeModal()">Annuller</button>
+      <button class="btn btn-primary" id="type-fortsaet-knap" onclick="aabneFormular()" disabled>Fortsæt →</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULAR -->
+<div class="form-overlay" id="form-overlay">
+  <div class="form-topbar">
+    <button class="btn btn-sm btn-outline" onclick="lukFormular()">← Tilbage</button>
+    <span class="form-type-label" id="form-type-label">—</span>
+    <span class="form-nr-label" id="form-nr-label"></span>
+    <select class="status-select" id="form-status">
+      <option value="kladde">Kladde</option>
+      <option value="indsendt">Indsendt</option>
+      <option value="godkendt">Godkendt</option>
+    </select>
+  </div>
+
+  <div class="form-scroll" id="form-scroll">
+
+    <!-- 1. BETJENT -->
+    <div class="fs">
+      <div class="fs-head">👮 Rapporterende betjent</div>
+      <div class="fs-body">
+        <div class="fg4" style="margin-bottom:10px;">
+          <div class="ff"><label>Navn</label><input type="text" id="f-navn" placeholder="Dit navn..."></div>
+          <div class="ff"><label>Rang</label><input type="text" id="f-rang" placeholder="Rang..."></div>
+          <div class="ff"><label>Tjenestenummer</label><input type="text" id="f-badge" placeholder="G2512"></div>
+          <div class="ff"><label>Vognummer</label><input type="text" id="f-kaldesignal" placeholder="B-1102"></div>
+        </div>
+        <div class="fg2" style="margin-bottom:12px;">
+          <div class="ff"><label>Myndighed</label><input type="text" id="f-myndighed" value="Københavns Politi"></div>
+          <div class="ff"><label>Afdeling(er)</label><div class="afdeling-grid" id="afdeling-grid-r">
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-0" value="Reaktionssektionen"><label for="afdr-0">Reaktionssektionen</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-1" value="Beredskabssektionen"><label for="afdr-1">Beredskabssektionen</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-2" value="Kriminalteknisk Støttesektion"><label for="afdr-2">Kriminalteknisk Støttesektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-3" value="Operativ Færdselssektion"><label for="afdr-3">Operativ Færdselssektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-4" value="Operativ Special Afdeling"><label for="afdr-4">Operativ Special Afdeling</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-5" value="Hundeføresektion"><label for="afdr-5">Hundeføresektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-6" value="Indsatsledersektion"><label for="afdr-6">Indsatsledersektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-7" value="Indsatslederassistentsektion"><label for="afdr-7">Indsatslederassistentsektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-8" value="Rigspolitiet"><label for="afdr-8">Rigspolitiet</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-9" value="PUUC: Underviser"><label for="afdr-9">PUUC: Underviser</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-10" value="PUUC: Vejleder"><label for="afdr-10">PUUC: Vejleder</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-11" value="Aktionsstyrken (PET)"><label for="afdr-11">Aktionsstyrken (PET)</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-12" value="Efterforsker (PET)"><label for="afdr-12">Efterforsker (PET)</label></div>
+</div></div>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Ekstra enheder til stede</div>
+          <div class="betjent-liste" id="betjente-liste"></div>
+          <div class="tilfoej-row">
+            <input type="text" id="betjent-input" placeholder="Tilføj P-nummer / kaldesignal..." onkeydown="if(event.key==='Enter')tilfoejBetjent()">
+            <button class="btn btn-sm btn-outline" onclick="tilfoejBetjent()">+ Tilføj enhed</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. TID & LOKATION -->
+    <div class="fs">
+      <div class="fs-head">📍 Tidspunkt &amp; Lokation</div>
+      <div class="fs-body">
+        <div class="fg3" style="margin-bottom:10px;">
+          <div class="ff"><label>Dato</label><input type="text" id="f-dato" class="ro" readonly></div>
+          <div class="ff"><label>Tidspunkt</label><input type="text" id="f-tid" class="ro" readonly></div>
+          <div class="ff"><label>Rapport nr.</label><input type="text" id="f-rapport-nr" class="ro" readonly></div>
+        </div>
+        <div class="fg3">
+          <div class="ff" style="grid-column:span 2;"><label>Gade / Område</label><input type="text" id="f-lokation" placeholder="Eks. Freedom Avenue, Vesterbro..."></div>
+          <div class="ff"><label>Postnummer</label><input type="text" id="f-distrikt" placeholder="Eks. 2100"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. MISTÆNKT -->
+    <div class="fs">
+      <div class="fs-head">
+        👤 Mistænkt / Involverede
+        <button class="btn btn-sm btn-outline" style="margin-left:auto;font-size:10px;" onclick="hentFraOpslag()">Hent fra opslag</button>
+      </div>
+      <div class="fs-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="f-cpr-soeg" placeholder="Indtast CPR-nummer (DDMMÅÅÅÅ-XXXX)..." style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;">
+          <button class="btn btn-outline" onclick="hentFraOpslag()">Hent fra CPR</button>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Navn</label><input type="text" id="f-mistankt-navn" placeholder="Roblox Username / Rp Navn"></div>
+          <div class="ff"><label>Fødselsdato</label><input type="text" id="f-mistankt-foedsel" placeholder="DD/MM/ÅÅÅÅ"></div>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Køn</label>
+            <select id="f-mistankt-kon">
+              <option value="">Vælg...</option>
+              <option value="Mand">Mand</option>
+              <option value="Kvinde">Kvinde</option>
+              <option value="Ukendt">Ukendt</option>
+            </select>
+          </div>
+          <div class="ff"><label>Adresse</label><input type="text" id="f-mistankt-adresse" placeholder="Eks. Franklin Court 12"></div>
+        </div>
+        <div class="ff" style="margin-bottom:10px;"><label>Beskrivelse / Signalement</label><textarea id="f-mistankt-beskrivelse" placeholder="Påklædning, udseende, signalement..."></textarea></div>
+        <div class="ff"><label>Øvrige informationer</label><textarea id="f-mistankt-info" style="min-height:55px;" placeholder="Yderligere relevante oplysninger..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- 4. MEDICAL -->
+    <div class="fs">
+      <div class="fs-head">🏥 Medicinske detaljer (hvis relevant)</div>
+      <div class="fs-body">
+        <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap;">
+          <div class="check-r"><input type="checkbox" id="f-magt"><label for="f-magt">Magtanvendelse benyttet</label></div>
+          <div class="check-r"><input type="checkbox" id="f-afslog"><label for="f-afslog">Afslog behandling</label></div>
+          <div class="check-r"><input type="checkbox" id="f-ems"><label for="f-ems">EMS transport</label></div>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Anvendte våben</label><input type="text" id="f-vaaben" placeholder="Eks. Pistol, Taser..."></div>
+          <div class="ff"><label>Skadestype</label><input type="text" id="f-skadestype" placeholder="Eks. Skudsår, slag..."></div>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Skadesdetaljer</label><textarea id="f-skadesdetaljer" style="min-height:60px;" placeholder="Beskriv skadens omfang..."></textarea></div>
+          <div class="ff"><label>Transportdetaljer</label><textarea id="f-transport-detaljer" style="min-height:60px;" placeholder="Hospitalsaflevering, AMK..."></textarea></div>
+        </div>
+        <div class="ff"><label>Andre informationer</label><textarea id="f-medical-andet" style="min-height:55px;" placeholder="Yderligere medicinske oplysninger..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- 5A. ARREST DETAILS -->
+    <div class="fs" id="sektion-arrest" style="display:none;">
+      <div class="fs-head">🔒 Arrest Details — Tiltalepunkter</div>
+      <div class="split-layout">
+        <div class="split-venstre">
+          <div class="split-soeg"><input type="text" id="arrest-soeg" placeholder="Søg tiltalepunkt..." oninput="soegCharges(this.value)"></div>
+          <div class="split-liste" id="arrest-liste"></div>
+        </div>
+        <div class="split-hoejre">
+          <div class="split-hoejre-header">Tiltalepunkt</div>
+          <div class="valgte-liste" id="valgte-charges"><div class="ingen-valgt">Ingen tiltalepunkter valgt endnu</div></div>
+        </div>
+      </div>
+      <!-- Transport (kun arrest) -->
+      <div class="transport-under">
+        <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;">🚔 Transport</div>
+        <div style="display:flex;gap:24px;margin-bottom:10px;">
+          <div class="check-r"><input type="checkbox" id="f-self-transport"><label for="f-self-transport">Selvtransporteret</label></div>
+        </div>
+        <div class="ff"><label>Transporterende betjent</label><input type="text" id="f-transport-betjent" placeholder="Betjentens navn / P-nummer"></div>
+      </div>
+    </div>
+
+    <!-- 5B. BØDE / CITATION -->
+    <div class="fs" id="sektion-bøde" style="display:none;">
+      <div class="fs-head">📋 Bøde — Citations</div>
+      <div class="split-layout">
+        <div class="split-venstre">
+          <div class="split-soeg"><input type="text" id="citation-soeg" placeholder="Søg bøde / overtrædelse..." oninput="soegCitations(this.value)"></div>
+          <div class="split-liste" id="citation-liste"></div>
+        </div>
+        <div class="split-hoejre">
+          <div class="split-hoejre-header">Valgte bøder</div>
+          <div class="valgte-liste" id="valgte-citations"><div class="ingen-valgt">Ingen bøder valgt endnu</div></div>
+          <div class="citation-total-bar">
+            <span class="citation-total-lbl">Total bøde</span>
+            <span class="citation-total-val" id="citation-total">kr. 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5C. HÆNDELSESFORLØB (alle andre typer) -->
+    <div class="fs" id="sektion-haendelse">
+      <div class="fs-head">📋 Hændelsesforløb</div>
+      <div class="fs-body">
+        <div class="ff" style="margin-bottom:10px;"><label>Titel *</label><input type="text" id="f-titel" placeholder="Kort beskrivende titel for hændelsen"></div>
+        <div class="ff" style="margin-bottom:10px;"><label>Hændelsesbeskrivelse *</label><textarea id="f-beskrivelse" style="min-height:130px;" placeholder="Beskriv hændelsesforløbet detaljeret — hvad skete der, hvornår, hvor, hvem var involveret..."></textarea></div>
+        <div class="ff"><label>Konklusion / Videre handling</label><textarea id="f-konklusion" style="min-height:70px;" placeholder="Hvad blev resultatet? Anholdelse, bøde, efterforskning igangsat..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- 6. NOTER -->
+    <div class="fs">
+      <div class="fs-head">📝 Noter / Kommentarer</div>
+      <div class="fs-body">
+        <div class="ff"><label>Noter</label><textarea id="f-noter" style="min-height:90px;" placeholder="Interne noter, yderligere kommentarer..."></textarea></div>
+      </div>
+    </div>
+
+  </div><!-- /form-scroll -->
+
+  <div class="form-footer">
+    <button class="btn btn-outline" onclick="lukFormular()">Annuller</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-outline" onclick="gemRapport('kladde')">💾 Gem kladde</button>
+    <button class="btn btn-primary btn-lg" onclick="gemRapport('indsendt')">📁 Send rapport til Discord</button>
+  </div>
+</div><!-- /form-overlay -->
+
+<script>
+const TYPE_INFO = {
+  'hændelse':    {label:'Hændelse',    farve:'#3b82f6',ikon:'🔵'},
+  'trafikulykke':{label:'Trafikulykke',farve:'#eab308',ikon:'🚗'},
+  'indbrud':     {label:'Indbrud',     farve:'#f97316',ikon:'🏠'},
+  'vold':        {label:'Vold',        farve:'#ef4444',ikon:'🥊'},
+  'forfølgelse': {label:'Forfølgelse', farve:'#a855f7',ikon:'🚨'},
+  'røveri':      {label:'Røveri',      farve:'#f59e0b',ikon:'🏦'},
+  'skyderi':     {label:'Skyderi',     farve:'#ef4444',ikon:'🔫'},
+  'andet':       {label:'Andet',       farve:'#6c7a96',ikon:'📄'},
+};
+
+const CHARGES = [
+  {g:'Voldsforbrydelser - Manddrab/Mord',c:[
+    {n:'(F) Forsætligt manddrab',s:'25-60 år'},{n:'(F) Uagtsomt manddrab',s:'10-25 år'},
+    {n:'(F) Manddrab med køretøj',s:'10-25 år'},{n:'(F) Kapitalmord',s:'25 år - livstid'},
+    {n:'(F) Mord af 1. grad',s:'25 år - livstid'},{n:'(F) Mord af 2. grad',s:'10-25 år'},
+    {n:'(F) Mord af 3. grad',s:'10-25 år'},{n:'(F) Skærpet mord',s:'25 år - livstid'},
+    {n:'(F) Forsøg på mord',s:'10-25 år'},{n:'(F) Forsøg på mord på politibetjent',s:'25-60 år'},
+    {n:'(F) Mord på politibetjent',s:'25 år - livstid'},{n:'(F) Sammensværgelse om at begå mord',s:'10-25 år'},
+  ]},
+  {g:'Voldsforbrydelser - Overfald/Vold',c:[
+    {n:'(M) Simpelt overfald',s:'6-12 mdr'},{n:'(M) Simpel vold',s:'6-12 mdr'},
+    {n:'(F) Skærpet overfald',s:'1-5 år'},{n:'(F) Overfald med dødligt våben',s:'1-5 år'},
+    {n:'(F) Overfald mod politibetjent',s:'1-5 år'},{n:'(F) Skærpet vold',s:'1-5 år'},
+    {n:'(F) Seksuelt overgreb',s:'1-5 år'},{n:'(F) Vold mod politibetjent',s:'5-10 år'},
+    {n:'(F) Vold mod ældre/handicappede',s:'5-10 år'},{n:'(F) Børnemishandling/omsorgssvigt',s:'5-10 år'},
+    {n:'(F) Voldtægt',s:'10-20 år'},{n:'(F) Forsøg på voldtægt',s:'5-10 år'},
+    {n:'(M) Upassende og uanstændig adfærd',s:'6-12 mdr'},
+  ]},
+  {g:'Voldsforbrydelser - Tyveri/Røveri/Indbrud',c:[
+    {n:'(F) Indbrud',s:'1-5 år'},{n:'(F) Bankrøveri',s:'5-15 år'},
+    {n:'(F) Røveri i dagligvarebutik',s:'1-10 år'},{n:'(F) Væbnet røveri',s:'5-10 år'},
+    {n:'(F) Bilkapring',s:'1-5 år'},{n:'(F) Groft biltyveri',s:'5-10 år'},
+    {n:'(F) Groft tyveri',s:'1-5 år'},{n:'(F) Røveri med vold',s:'1-5 år'},
+    {n:'(F) Hjemmerøveri',s:'1-3 år'},{n:'(F) Indbrud i bolig',s:'5-15 år'},
+    {n:'(F) Forsøg på røveri',s:'1-5 år'},{n:'(F) Forsøg på biltyveri',s:'1-5 år'},
+  ]},
+  {g:'Voldsforbrydelser - Brandstiftelse',c:[
+    {n:'(F) Brandstiftelse',s:'5-10 år'},{n:'(F) Forsøg på mordbrand',s:'1-5 år'},
+    {n:'(F) Brandstiftelse i første grad',s:'5-10 år'},{n:'(F) Brandstiftelse i anden grad',s:'5-10 år'},
+    {n:'(F) Brandstiftelse i tredje grad',s:'5-10 år'},
+  ]},
+  {g:'Voldsforbrydelser - Kidnapning',c:[
+    {n:'(F) Simpel kidnapning',s:'5-10 år'},{n:'(F) Skærpet kidnapning',s:'5-15 år'},
+    {n:'(F) Forsøg på kidnapning',s:'1-5 år'},{n:'(F) Skærpet stalking',s:'1-5 år'},
+    {n:'(M) Stalking',s:'1-5 år'},{n:'(F) Ulovlig frihedsberøvelse',s:'5-10 år'},
+  ]},
+  {g:'Voldsforbrydelser - Protest og optøjer',c:[
+    {n:'(F) Grov vold med ødelæggelse',s:'1-5 år'},{n:'(F) Deltagelse i bander under kriminalitet',s:'1-5 år'},
+    {n:'(F) Deltagelse i voldsom protest',s:'1-5 år'},{n:'(F) Opfordring til optøjer',s:'1-5 år'},
+    {n:'(F) Deltagelse i optøjer',s:'1-5 år'},{n:'(F) Modstand mod anholdelse med vold',s:'1-5 år'},
+    {n:'(M) Ulovlig forsamling',s:'1-5 år'},
+  ]},
+  {g:'Voldsforbrydelser - Skydevåben/Våben',c:[
+    {n:'(F) Viften med skydevåben',s:'6-12 mdr'},{n:'(F) Ulovlig brug/affyring af skydevåben',s:'1-5 år'},
+    {n:'(F) Besiddelse af dødbringende våben',s:'1-5 år'},{n:'(F) Besiddelse af destruktive anordninger',s:'1-5 år'},
+    {n:'(F) Besiddelse af bombefremstillingsmateriale',s:'1-5 år'},
+  ]},
+  {g:'Voldsforbrydelser - Dyremishandling/Mishandling',c:[
+    {n:'(M) Dyremishandling',s:'6-12 mdr'},{n:'(M) Vanrøgt af dyr',s:'6-12 mdr'},
+    {n:'(F) Dyrekampe',s:'6-12 mdr'},{n:'(M) Ulovlig jagt',s:'6-12 mdr'},
+  ]},
+  {g:'Ikke-voldelige forbrydelser - Ungdomsforbrydelser',c:[
+    {n:'(M) Alkoholindtag for mindreårige',s:'1-6 mdr'},{n:'(M) Joyriding',s:'6-12 mdr'},
+    {n:'(M) Udgangsforbud',s:'1-3 mdr'},{n:'(F) Uautoriseret brug af motorkøretøj',s:'6-12 mdr'},
+  ]},
+  {g:'Ikke-voldelige forbrydelser',c:[
+    {n:'(F) Bedrageri',s:'1-5 år'},{n:'(M) Bestikkelse',s:'6-12 mdr'},
+    {n:'(F) Hvidvaskning af penge',s:'1-5 år'},{n:'(F) Identitetstyveri',s:'6-12 mdr'},
+    {n:'(M) Beruset i offentligheden',s:'6-12 mdr'},{n:'(M) Uordentlig adfærd',s:'6-12 mdr'},
+  ]},
+  {g:'Ikke-voldelige forbrydelser - Bevis/vidne',c:[
+    {n:'(F) Mened',s:'1-5 år'},{n:'(F) Hindring af retfærdighed',s:'1-5 år'},
+    {n:'(M) Falsk anmeldelse',s:'6-12 mdr'},{n:'(F) Tampering med bevismateriale',s:'1-5 år'},
+  ]},
+  {g:'Besiddelse - Narkotika/Ulovlige stoffer',c:[
+    {n:'(M) Besiddelse af marihuana (under 10g)',s:'1-6 mdr'},
+    {n:'(F) Besiddelse af kontrollerede stoffer (Skema I)',s:'1-5 år'},
+    {n:'(F) Narkotikahandel (Skema I)',s:'5-20 år'},{n:'(F) Narkotikahandel (Skema II)',s:'5-20 år'},
+    {n:'(F) Narkotikahandel (Skema IV)',s:'5-20 år'},
+  ]},
+  {g:'Besiddelse - Våben og Ammunition',c:[
+    {n:'(F) Ulovlig Besiddelse af Skydevåben',s:'6-12 mdr'},
+    {n:'(F) Ulovlig Besiddelse af Skydevåben af Forbryder',s:'5-10 år'},
+    {n:'(F) Besiddelse af Skydevåben (Ikke Registreret)',s:'5-10 år'},
+    {n:'(F) Besiddelse af Skydevåben (Serial Manipuleret)',s:'5-10 år'},
+    {n:'(F) Våbenhandel',s:'5-15 år'},
+  ]},
+  {g:'Ejendom - Stjålet ejendom',c:[
+    {n:'(F) Besiddelse af et Stjålet Køretøj',s:'6-12 mdr'},
+    {n:'(F) Besiddelse af Stjålet Ejendom',s:'6-12 mdr'},
+    {n:'(M) Falsk Kørekort Eller ID',s:'6-12 mdr'},
+    {n:'(M) Besiddelse af Stjålet Nummerplade',s:'6-12 mdr'},
+  ]},
+  {g:'Ejendom - Hærværk og ødelæggelse',c:[
+    {n:'(M) Ødelæggelse af Offentlig Ejendom',s:'6-12 mdr'},
+    {n:'(M) Ødelæggelse af Privat Ejendom',s:'6-12 mdr'},
+    {n:'(M) Hærværk af Offentlig Ejendom',s:'6-12 mdr'},
+    {n:'(M) Hærværk af Privat Ejendom',s:'6-12 mdr'},
+    {n:'(M) Graffiti',s:'6-12 mdr'},
+  ]},
+  {g:'Ejendom - Butikstyveri',c:[
+    {n:'(M) Butikstyveri',s:'6-12 mdr'},{n:'(M) Småtyveri',s:'6-12 mdr'},
+    {n:'(M) Detailtyveri',s:'6-12 mdr'},
+  ]},
+  {g:'Trafikforseelser',c:[
+    {n:'(M) Kørsel mod færdselsretningen',s:'6-12 mdr'},
+    {n:'(M) Aggressiv kørsel og fareudsættelse',s:'6-12 mdr'},
+    {n:'(M) Gaderæs',s:'6-12 mdr'},
+    {n:'(F) Flugt fra politiet',s:'6-12 mdr'},
+    {n:'(F) Flugt fra politiet med personskade/tingskade eller død',s:'5-15 år'},
+    {n:'(M) Flugt fra ulykkessted',s:'6-12 mdr'},
+    {n:'(F) Forsøg på at flygte/unddrage sig politiet',s:'6-12 mdr'},
+  ]},
+  {g:'Trafikforseelser - Spirituskørsel',c:[
+    {n:'(M) Kørsel under påvirkning af alkohol',s:'6-12 mdr'},
+    {n:'(F) Kørsel under påvirkning af alkohol (2. gang)',s:'1-5 år'},
+    {n:'(M) Kørsel under påvirkning af stoffer',s:'6-12 mdr'},
+    {n:'(M) Nægtelse af at afgive blod- eller udåndingsprøve',s:'6-12 mdr'},
+    {n:'(M) Åben beholder i motorfordon',s:'6-12 mdr'},
+  ]},
+  {g:'Trafikforseelser - Kørekort/Registrering/Forsikring',c:[
+    {n:'(F) Kørsel med suspenderet kørekort med viden',s:'1-12 mdr'},
+    {n:'(F) Kørsel med frakendt kørekort',s:'1-12 mdr'},
+    {n:'(M) Kørsel uden registrering',s:'1-12 mdr'},
+    {n:'(M) Kørsel uden forsikring',s:'1-12 mdr'},
+    {n:'(M) Kørsel uden kørekort',s:'1-12 mdr'},
+    {n:'(M) Manglende fremvisning af dokumentation',s:'1-12 mdr'},
+  ]},
+  {g:'Efterlysninger/Arrestordrer',c:[
+    {n:'Efterlysning (delstat/amt)',s:'1-20 år'},
+    {n:'Efterlysning (Overfald mod politibetjent)',s:'1-5 år'},
+    {n:'Efterlysning (Mord af 1. grad)',s:'25 år - livstid'},
+    {n:'Efterlysning (Forsætligt manddrab)',s:'25-60 år'},
+    {n:'Efterlysning (Flugt fra politiet)',s:'1-5 år'},
+    {n:'Efterlysning (Bankrøveri)',s:'5-15 år'},
+    {n:'Efterlysning (Væbnet røveri)',s:'5-10 år'},
+    {n:'Efterlysning (Narkotikahandel)',s:'5-20 år'},
+    {n:'Efterlysning (Groft tyveri)',s:'1-5 år'},
+    {n:'Efterlysning (Ulovlig våbenbesiddelse)',s:'1-10 år'},
+    {n:'Efterlysning (Hvidvaskning)',s:'1-10 år'},
+    {n:'Efterlysning (Bankrøveri)',s:'5-15 år'},
+    {n:'Efterlysning (Besiddelse af narkotika/ulovlige stoffer)',s:'1-10 år'},
+    {n:'Efterlysning (Butikstyveri)',s:'1-5 år'},
+  ]},
+];
+
+const CITATIONS = [
+  {g:'Almindelige lovovertrædelser',c:[
+    {n:'Beruset i offentligheden',b:1000},{n:'Offentlig urinering',b:500},
+    {n:'Graffiti',b:1000},{n:'Henkastning af affald',b:489},
+    {n:'Ophold uden formål',b:350},{n:'Blufærdighedskrænkelse',b:600},
+    {n:'Forstyrrelse af freden',b:1000},{n:'Ulovlig indtrængen',b:800},
+    {n:'Rygning forbudt',b:150},{n:'Ulovlig camping',b:900},
+    {n:'Åben beholder',b:366},{n:'Personligt brug af marihuana (mindre end 10g)',b:150},
+    {n:'Personligt brug af marihuana (mere end 10g)',b:300},
+    {n:'Ulovlig krydsning af vej',b:50},{n:'Urimelig støj / Overtrædelse af støjforordning',b:250},
+  ]},
+  {g:'Bøder for Hastighedsovertrædelser',c:[
+    {n:'Hastighedskrænkelse (Under 10)',b:260},{n:'Hastighedskrænkelse (Imellem 10-15)',b:370},
+    {n:'Hastighedskrænkelse (Imellem 16-30)',b:500},
+    {n:'Hastighedskrænkelse (Over 30+)',b:700,a:true},{n:'Racing på motorvejen',b:1000,a:true},
+  ]},
+  {g:'Bevægelige Overtrædelser',c:[
+    {n:'Uforsvarligt vognbaneskift',b:238},{n:'Ulovligt omkørsel',b:237},
+    {n:'Ulovligt sving',b:237},{n:'Ulovlig U-vending',b:237},
+    {n:'Manglende vigepligt',b:237},{n:'Uagtsom kørsel',b:300},
+    {n:'For kort afstand',b:237},{n:'Manglende brug af blinklys',b:237},
+    {n:'Manglende at vige for udrykningskøretøj',b:490},{n:'Hindring af trafikflow',b:237},
+    {n:'Skyld i ulykke',b:300},{n:'Manglende stop ved trafiksignal',b:490},
+    {n:'Kørsel mod stopskilt',b:238},{n:'Krydse midterlinje, helle eller spærreflade',b:350},
+    {n:'Manglende sikring af last på lastbil',b:250},
+    {n:'Kørsel på motorcykel/ATV uden hjelm',b:250},
+    {n:'Anvendelse af telefon under kørsel',b:162},{n:'Overdreven acceleration',b:190},
+    {n:'Overtrædelse af krav om barnestol',b:100},
+  ]},
+  {g:'Bevægelige Overtrædelser (Kan Anholdes)',c:[
+    {n:'Kører Den Forkerte Vej',b:400,a:true},{n:'Vanvidskørsel',b:350,a:true},
+    {n:'Forlader Ulykkesstedet',b:300,a:true},{n:'Bevidst Kørsel Med Inddraget Kørekort',b:400,a:true},
+    {n:'Kørsel Under Påvirkning',b:1500,a:true},{n:'Obstruktion',b:1000,a:true},
+  ]},
+  {g:'Stillastående trafikforbrydelser',c:[
+    {n:'Overdreven køretøjsstøj (udstødning/stereo)',b:250},{n:'Mangler forreste nummerplade',b:196},
+    {n:'Revnet forrude',b:130},{n:'Udløbet/manglende synsmærke',b:140},
+    {n:'Uegnet køretøj',b:600},{n:'Mangelfuld belysning',b:237},
+    {n:'Overtrædelse af krav om sikkerhedssele',b:162},{n:'Ulovlig toning',b:110},
+    {n:'Åben beholder i køretøj',b:250},{n:'Headset eller ørepropper under kørsel',b:179},
+  ]},
+  {g:'Kørekort/Registrering/Forsikring',c:[
+    {n:'Manglende fremvisning af forsikring/ingen forsikring',b:900},{n:'Udløbet forsikring',b:600},
+    {n:'Udløbet forsikring (> 30 dage)',b:300},{n:'Manglende fremvisning/ingen registrering',b:284},
+    {n:'Udløbet registrering',b:196},{n:'Udgånget kørekort',b:237},
+    {n:'Inget kørekort (NTA trafikdomstol)',b:401},
+    {n:'Kørsel med et suspenderet/inddraget kørekort uden viden (NTA trafikdomstol)',b:400},
+  ]},
+  {g:'Parkeringsforbrydelser',c:[
+    {n:'Blokerer brandhane',b:65},{n:'Parkering i brandzone',b:80},
+    {n:'Udløbet parkeringsmåler',b:65},{n:'Overtrædelse af skiltet parkeringsforbud',b:65},
+    {n:'Blokerer indkørsel/overgang/fortov',b:65},{n:'Parkering mod færdselsretningen',b:65},
+    {n:'Parkering i buszone',b:250},{n:'Dobbeltparkering',b:65},
+    {n:'Parkering i handicapzone',b:421},{n:'Parkering i handicapzone - 2:a Overtrædelse',b:625},
+    {n:'Parkering i handicapzone - 3:e Overtrædelse',b:825},
+    {n:'Parkering på privat ejendom',b:65},{n:'Parkering på fortov',b:120},
+    {n:'Efterladt køretøj',b:200},
+  ]},
+  {g:'Bådbøde',c:[
+    {n:'Fartøjet opfylder ikke standarden',b:280},{n:'Ugyldig fartøjsregistrering',b:192},
+    {n:'Ulovlig bådhastighed',b:280},{n:'Uagtsom håndtering af fartøj',b:1300},
+    {n:'Uagtsom håndtering – under påvirkning',b:2735,a:true},
+    {n:'Kørsel af et fartøj under påvirkning',b:2735,a:true},
+    {n:'Sejlads under alder / uden bådlicens',b:270},
+  ]},
+  {g:'Dyrehåndteringsforbrydelser',c:[
+    {n:'Hunde på fri fod',b:120},{n:'Manglende hundelicens',b:130},
+    {n:'Overtrædelse vedr. dyreekskrementer',b:140},
+  ]},
+  {g:'Advarsler',c:[
+    {n:'Advarsel for ulovlig hastighed',b:0},{n:'Advarsel for sikkerhedssele',b:0},
+    {n:'Advarsel for blinklys',b:0},{n:'Advarsel for upassende omkørsel',b:0},
+    {n:'Advarsel for ulovlig toning',b:0},{n:'Advarsel for ulovlig U-vending',b:0},
+    {n:'Advarsel for distraheret kørsel',b:0},{n:'Advarsel for manglende eftergivelse',b:0},
+    {n:'Advarsel for parkeringsforbrydelser',b:0},{n:'Advarsel for udløbet syn',b:0},
+    {n:'Advarsel for overdreven køretøjsstøj',b:0},{n:'Advarsel for revnet forrude',b:0},
+    {n:'Advarsel for usikkert vognbaneskift',b:0},{n:'Advarsel for ingen belysning om natten',b:0},
+  ]},
+];
+
+// STATE
+let token='',backendUrl='',mig=null;
+let alleRapporter=[],valgtType=null;
+let valgteCharges=[],valgteCitations=[],betjente=[];
+let editId=null; // null = ny rapport, tal = rediger eksisterende
+
+// INIT
+async function startSide() {
+  // Bind knapper der er i HTML (udenfor script scope ved load)
+  const opretKnap = document.getElementById('opret-knap-hoved');
+  if (opretKnap) opretKnap.onclick = () => aabneTypeModal();
+
+  const nu=new Date();
+  document.getElementById('f-dato').value=nu.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
+  document.getElementById('f-tid').value=nu.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+  if(mig){
+    document.getElementById('f-navn').value=mig.roblox_brugernavn||mig.discord_navn||'';
+    document.getElementById('f-rang').value=mig.rang||'';
+    document.getElementById('f-badge').value=mig.badge_nummer||'';
+    document.getElementById('f-kaldesignal').value=mig.kaldesignal||'';
+  }
+  byggChargeListe();byggCitationListe();
+  await hentRapporter();
+}
+
+// LISTE
+async function hentRapporter() {
+  try {
+    const r=await fetch(`${backendUrl}/data/rapporter`,{headers:{Authorization:`Bearer ${token}`}});
+    alleRapporter=await r.json();visListe(alleRapporter);
+  } catch {
+    document.getElementById('liste').innerHTML='<div style="padding:20px;text-align:center;color:var(--muted)">Kunne ikke hente rapporter</div>';
+  }
+}
+function visListe(rapporter) {
+  const el=document.getElementById('liste');
+  if(!rapporter.length){el.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Ingen rapporter endnu</div>';return;}
+  el.innerHTML=rapporter.map(r=>{
+    const ti=TYPE_INFO[r.type]||TYPE_INFO['andet'];
+    const sb=r.status==='godkendt'?'badge-grøn':r.status==='indsendt'?'badge-blå':'badge-grå';
+    const kanRedigere = !mig?.er_admin ? r.oprettet_af_id === mig?.id : true;
+    return `<div class="rapport-item" onclick="visRapport(${r.id},this)">
+      <div class="rapport-type-dot" style="background:${ti.farve}"></div>
+      <div style="flex:1;min-width:0">
+        <div class="rapport-titel">${ti.ikon} ${r.titel||'(Uden titel)'}</div>
+        <div class="rapport-meta">${r.rapport_nr||''} · ${r.oprettet_af_navn||'—'} · ${new Date(r.oprettet).toLocaleDateString('da-DK')}</div>
+        <div class="rapport-snippet">${(r.beskrivelse||'').substring(0,70)}...</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;">
+        <span class="badge ${sb}">${r.status||'kladde'}</span>
+        ${kanRedigere ? `<span style="font-size:10px;color:var(--accent);cursor:pointer;letter-spacing:1px;" onclick="event.stopPropagation();aabneRediger(${r.id})">REDIGER</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function visRapport(id,el) {
+  document.querySelectorAll('.rapport-item').forEach(i=>i.classList.remove('valgt'));
+  if(el)el.classList.add('valgt');
+  const r=alleRapporter.find(x=>x.id===id);if(!r)return;
+  const ti=TYPE_INFO[r.type]||TYPE_INFO['andet'];
+  const sb=r.status==='godkendt'?'badge-grøn':r.status==='indsendt'?'badge-blå':'badge-grå';
+  const charges=JSON.parse(r.tiltalepunkter||'[]');
+  const citations=JSON.parse(r.citations||'[]');
+  let html=`<div class="v-sek"><div class="v-head">${ti.ikon} ${ti.label}rapport — <span class="badge ${sb}">${r.status||'kladde'}</span></div>
+    <div class="v-body"><div class="v-grid">
+      <div class="v-felt"><label>Rapport nr.</label><div class="val">${r.rapport_nr||'—'}</div></div>
+      <div class="v-felt"><label>Oprettet af</label><div class="val">${r.oprettet_af_navn||'—'}</div></div>
+      <div class="v-felt"><label>Dato</label><div class="val">${new Date(r.oprettet).toLocaleDateString('da-DK')}</div></div>
+      <div class="v-felt"><label>Lokation</label><div class="val">${r.lokation||'—'}</div></div>
+    </div></div></div>`;
+  if(r.beskrivelse)html+=`<div class="v-sek"><div class="v-head">📋 Beskrivelse</div><div class="v-body"><div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;">${r.beskrivelse}</div></div></div>`;
+  if(charges.length)html+=`<div class="v-sek"><div class="v-head">🔒 Tiltalepunkter</div><div class="v-body">${charges.map(c=>`<span class="ctag">${c}</span>`).join('')}</div></div>`;
+  if(citations.length){
+    const total=citations.reduce((s,c)=>s+(c.b||c.bøde||0),0);
+    html+=`<div class="v-sek"><div class="v-head">📋 Bøder — Total: kr. ${total.toLocaleString('da-DK')}</div><div class="v-body">${citations.map(c=>`<span class="btag">${c.n||c.navn} — kr. ${c.b||c.bøde||0}</span>`).join('')}</div></div>`;
+  }
+  document.getElementById('hoved-indhold').innerHTML=html;
+}
+
+// TYPE MODAL
+function aabneTypeModal(){valgtType=null;document.querySelectorAll('.type-valg').forEach(v=>v.classList.remove('valgt'));document.getElementById('type-fortsaet-knap').disabled=true;document.getElementById('type-modal').classList.add('vis');}
+function lukTypeModal(){document.getElementById('type-modal').classList.remove('vis');}
+function vaelgType(type,el){valgtType=type;document.querySelectorAll('.type-valg').forEach(v=>v.classList.remove('valgt'));el.classList.add('valgt');document.getElementById('type-fortsaet-knap').disabled=false;}
+
+// FORMULAR
+function aabneFormular(){
+  if(!valgtType)return;
+  lukTypeModal();
+  valgteCharges=[];valgteCitations=[];betjente=[];editId=null;
+  const ti=TYPE_INFO[valgtType];
+  document.getElementById('form-type-label').textContent=`${ti.ikon} ${ti.label}rapport`;
+  const nr='RPT-'+Date.now().toString().slice(-6);
+  document.getElementById('f-rapport-nr').value=nr;
+  document.getElementById('form-nr-label').textContent=nr;
+  ['f-lokation','f-distrikt','f-mistankt-navn','f-mistankt-foedsel','f-mistankt-adresse',
+   'f-mistankt-beskrivelse','f-mistankt-info','f-vaaben','f-skadestype','f-skadesdetaljer',
+   'f-transport-detaljer','f-medical-andet','f-titel','f-beskrivelse','f-konklusion',
+   'f-transport-betjent','f-noter','f-afdeling'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});
+  ['f-magt','f-afslog','f-ems','f-self-transport'].forEach(id=>{const e=document.getElementById(id);if(e)e.checked=false;});
+  const erAnholdelse=valgtType==='anholdelse',erBøde=valgtType==='bøde';
+  document.getElementById('sektion-arrest').style.display=erAnholdelse?'':'none';
+  document.getElementById('sektion-bøde').style.display=erBøde?'':'none';
+  document.getElementById('sektion-haendelse').style.display=(!erAnholdelse&&!erBøde)?'':'none';
+  opdaterValgteCharges();opdaterValgteCitations();visBetjente();
+  document.getElementById('arrest-soeg').value='';document.getElementById('citation-soeg').value='';
+  byggChargeListe();byggCitationListe();
+  document.getElementById('form-overlay').classList.add('vis');
+  document.getElementById('form-scroll').scrollTop=0;
+}
+function lukFormular(){document.getElementById('form-overlay').classList.remove('vis');}
+
+// CHARGES
+function byggChargeListe(filter=''){
+  const container=document.getElementById('arrest-liste');
+  const fl=filter.toLowerCase();
+  let html='';
+  CHARGES.forEach((grp,gi)=>{
+    const match=grp.c.filter(c=>!fl||c.n.toLowerCase().includes(fl)||grp.g.toLowerCase().includes(fl));
+    if(!match.length)return;
+    html+=`<div class="gruppe-navn${fl?' aaben':''}" onclick="toggleGruppe(this,'cg-${gi}')"><span class="pil">▶</span>${grp.g}</div>
+    <div class="gruppe-items${fl?' vis':''}" id="cg-${gi}">${match.map(c=>`
+      <div class="punkt punkt-charge" onclick="tilfoejCharge('${c.n.replace(/'/g,"\\'")}','${c.s}')">
+        <span>${c.n}</span><span class="punt-meta">${c.s}</span>
+      </div>`).join('')}</div>`;
+  });
+  container.innerHTML=html||'<div style="padding:12px;text-align:center;font-size:12px;color:var(--muted)">Ingen resultater</div>';
+}
+function soegCharges(q){byggChargeListe(q);}
+function toggleGruppe(el,id){el.classList.toggle('aaben');const items=document.getElementById(id);if(items)items.classList.toggle('vis');}
+function tilfoejCharge(navn,straf){if(valgteCharges.find(c=>c.n===navn))return;valgteCharges.push({n:navn,s:straf});opdaterValgteCharges();}
+function fjernCharge(navn){valgteCharges=valgteCharges.filter(c=>c.n!==navn);opdaterValgteCharges();}
+function opdaterValgteCharges(){
+  const el=document.getElementById('valgte-charges');
+  if(!valgteCharges.length){el.innerHTML='<div class="ingen-valgt">Ingen tiltalepunkter valgt endnu</div>';return;}
+  el.innerHTML=valgteCharges.map(c=>`<div class="valgt-charge">
+    <div style="flex:1"><div class="valgt-charge-navn">${c.n}</div><div class="valgt-charge-straf">⏱ ${c.s}</div></div>
+    <span class="valgt-fjern" onclick="fjernCharge('${c.n.replace(/'/g,"\\'")}')">✕</span>
+  </div>`).join('');
+}
+
+// CITATIONS
+function byggCitationListe(filter=''){
+  const container=document.getElementById('citation-liste');
+  const fl=filter.toLowerCase();
+  let html='';
+  CITATIONS.forEach((grp,gi)=>{
+    const match=grp.c.filter(c=>!fl||c.n.toLowerCase().includes(fl)||grp.g.toLowerCase().includes(fl));
+    if(!match.length)return;
+    html+=`<div class="gruppe-navn${fl?' aaben':''}" onclick="toggleCitGruppe(this,'citg-${gi}')"><span class="pil">▶</span>${grp.g}</div>
+    <div class="gruppe-items${fl?' vis':''}" id="citg-${gi}">${match.map(c=>`
+      <div class="punkt punkt-citation" onclick="tilfoejCitation('${c.n.replace(/'/g,"\\'")}',${c.b||0},${c.a?'true':'false'})">
+        <span>${c.n}</span>
+        <span style="display:flex;gap:5px;align-items:center;">
+          ${c.a?'<span class="arrestable-tag">Kan anholdes</span>':''}
+          <span class="boed-meta">kr. ${(c.b||0).toLocaleString('da-DK')}</span>
+        </span>
+      </div>`).join('')}</div>`;
+  });
+  container.innerHTML=html||'<div style="padding:12px;text-align:center;font-size:12px;color:var(--muted)">Ingen resultater</div>';
+}
+function soegCitations(q){byggCitationListe(q);}
+function toggleCitGruppe(el,id){el.classList.toggle('aaben');const items=document.getElementById(id);if(items)items.classList.toggle('vis');}
+function tilfoejCitation(navn,bøde,arrestable){if(valgteCitations.find(c=>c.n===navn))return;valgteCitations.push({n:navn,b:bøde,a:arrestable});opdaterValgteCitations();}
+function fjernCitation(navn){valgteCitations=valgteCitations.filter(c=>c.n!==navn);opdaterValgteCitations();}
+function opdaterValgteCitations(){
+  const el=document.getElementById('valgte-citations');
+  if(!valgteCitations.length){el.innerHTML='<div class="ingen-valgt">Ingen bøder valgt endnu</div>';document.getElementById('citation-total').textContent='kr. 0';return;}
+  el.innerHTML=valgteCitations.map(c=>`<div class="valgt-citation">
+    <span class="valgt-citation-navn">${c.n}${c.a?' 🔴':''}</span>
+    <span class="valgt-citation-boed">kr. ${(c.b||0).toLocaleString('da-DK')}</span>
+    <span class="valgt-fjern" onclick="fjernCitation('${c.n.replace(/'/g,"\\'")}')">✕</span>
+  </div>`).join('');
+  const total=valgteCitations.reduce((s,c)=>s+(c.b||0),0);
+  document.getElementById('citation-total').textContent='kr. '+total.toLocaleString('da-DK');
+}
+
+// BETJENTE
+function tilfoejBetjent(){const input=document.getElementById('betjent-input');const val=input.value.trim();if(!val||betjente.includes(val))return;betjente.push(val);input.value='';visBetjente();}
+function fjernBetjent(navn){betjente=betjente.filter(n=>n!==navn);visBetjente();}
+function visBetjente(){document.getElementById('betjente-liste').innerHTML=betjente.map(n=>`<div class="betjent-item"><span class="betjent-navn">👮 ${n}</span><span class="betjent-fjern" onclick="fjernBetjent('${n}')">✕</span></div>`).join('');}
+
+// REDIGER EKSISTERENDE
+async function aabneRediger(id) {
+  try {
+    const r = await fetch(`${backendUrl}/data/rapporter/${id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!r.ok) { toast('Fejl','Kunne ikke hente rapport','fejl'); return; }
+    const rapport = await r.json();
+    const mistankt      = JSON.parse(rapport.mistankt      || '{}');
+    const medical       = JSON.parse(rapport.medical       || '{}');
+    const transport     = JSON.parse(rapport.transport     || '{}');
+    const tiltaleListe  = JSON.parse(rapport.tiltalepunkter|| '[]');
+    const citListe      = JSON.parse(rapport.citations     || '[]');
+    const betjenteListe = JSON.parse(rapport.betjente      || '[]');
+
+    editId = id;
+    valgtType = rapport.type;
+    valgteCharges   = tiltaleListe.map(n => ({ n, s: '' }));
+    valgteCitations = citListe;
+    const mitPnr = mig?.badge_nummer || mig?.kaldesignal;
+    betjente = betjenteListe.filter(b => b !== mitPnr);
+
+    const ti = TYPE_INFO[valgtType] || TYPE_INFO['andet'];
+    document.getElementById('form-type-label').textContent = `${ti.ikon} ${ti.label}rapport`;
+    document.getElementById('form-nr-label').textContent   = rapport.rapport_nr || '';
+    document.getElementById('f-rapport-nr').value          = rapport.rapport_nr || '';
+    document.getElementById('form-status').value           = rapport.status || 'kladde';
+
+    // Betjent
+    document.getElementById('f-navn').value        = mig?.roblox_brugernavn || mig?.discord_navn || '';
+    document.getElementById('f-rang').value        = mig?.rang || '';
+    document.getElementById('f-badge').value       = mig?.badge_nummer || '';
+    document.getElementById('f-kaldesignal').value = mig?.kaldesignal || '';
+
+    // Dato fra original
+    const oprettet = rapport.oprettet ? new Date(rapport.oprettet) : new Date();
+    document.getElementById('f-dato').value = oprettet.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
+    document.getElementById('f-tid').value  = oprettet.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+
+    // Lokation
+    document.getElementById('f-lokation').value = rapport.lokation || '';
+    document.getElementById('f-distrikt').value  = '';
+
+    // Mistænkt
+    document.getElementById('f-mistankt-navn').value        = mistankt.navn        || '';
+    document.getElementById('f-mistankt-foedsel').value     = mistankt.foedsel     || '';
+    document.getElementById('f-mistankt-kon').value         = mistankt.kon         || '';
+    document.getElementById('f-mistankt-adresse').value     = mistankt.adresse     || '';
+    document.getElementById('f-mistankt-beskrivelse').value = mistankt.beskrivelse || '';
+    document.getElementById('f-mistankt-info').value        = mistankt.info        || '';
+
+    // Medical
+    document.getElementById('f-magt').checked   = !!medical.magtanvendelse;
+    document.getElementById('f-afslog').checked = !!medical.afslogBehandling;
+    document.getElementById('f-ems').checked    = !!medical.emsTransport;
+    document.getElementById('f-vaaben').value             = medical.vaaben             || '';
+    document.getElementById('f-skadestype').value         = medical.skadestype         || '';
+    document.getElementById('f-skadesdetaljer').value     = medical.skadesdetaljer     || '';
+    document.getElementById('f-transport-detaljer').value = medical.transportDetaljer  || '';
+    document.getElementById('f-medical-andet').value      = medical.andet              || '';
+
+    // Transport
+    if (rapport.type === 'anholdelse') {
+      document.getElementById('f-self-transport').checked  = !!transport.selfTransport;
+      document.getElementById('f-transport-betjent').value = transport.betjent || '';
+    }
+
+    // Hændelsesforløb
+    document.getElementById('f-titel').value       = rapport.titel       || '';
+    document.getElementById('f-beskrivelse').value = rapport.beskrivelse || '';
+    document.getElementById('f-konklusion').value  = '';
+    document.getElementById('f-noter').value       = rapport.noter       || '';
+
+    // Vis/skjul sektioner
+    const erAnholdelse = valgtType === 'anholdelse';
+    const erBode       = valgtType === 'bøde';
+    document.getElementById('sektion-arrest').style.display    = erAnholdelse ? '' : 'none';
+    document.getElementById('sektion-bøde').style.display      = erBode      ? '' : 'none';
+    document.getElementById('sektion-haendelse').style.display = (!erAnholdelse && !erBode) ? '' : 'none';
+
+    opdaterValgteCharges();
+    opdaterValgteCitations();
+    visBetjente();
+    byggChargeListe();
+    byggCitationListe();
+
+    // Opdater send-knap tekst
+    const knap = document.querySelector('.form-footer .btn-primary');
+    if (knap) knap.textContent = '↑ Opdater og send til Discord';
+
+    document.getElementById('form-overlay').classList.add('vis');
+    document.getElementById('form-scroll').scrollTop = 0;
+  } catch(e) { console.error(e); toast('Fejl','Kunne ikke indlæse rapport','fejl'); }
+}
+
+// GEM
+async function gemRapport(status){
+  const erA=valgtType==='anholdelse',erB=valgtType==='bøde';
+  const titel=document.getElementById('f-titel').value.trim();
+  const beskrivelse=document.getElementById('f-beskrivelse').value.trim();
+  if(!erA&&!erB&&!titel){toast('Mangler info','Udfyld titel','fejl');return;}
+  const knap=document.querySelector('.form-footer .btn-primary');
+  if(knap){knap.disabled=true;knap.textContent='Gemmer...';}
+  const konklusion=document.getElementById('f-konklusion')?.value.trim()||'';
+  const beskrivelseTotal=beskrivelse+(konklusion?`\n\n**Konklusion:** ${konklusion}`:'');
+  const mitPnr=mig?.badge_nummer||mig?.kaldesignal;
+  const alBetjente=mitPnr?[mitPnr,...betjente]:betjente;
+  const rapportNrVal = document.getElementById('f-rapport-nr').value.trim();
+  const mistanktNavn = document.getElementById('f-mistankt-navn').value.trim() || 'Ukendt';
+  const autoTitel =
+    erA ? `Anholdelse — ${mistanktNavn} — ${rapportNrVal}` :
+    erB ? `Bøde — ${mistanktNavn} — ${rapportNrVal}` :
+    titel;
+
+  const data={
+    titel: autoTitel,
+    type:valgtType,status,beskrivelse:beskrivelseTotal,
+    lokation:document.getElementById('f-lokation').value.trim(),
+    betjente:alBetjente,
+    tiltalepunkter:JSON.stringify(valgteCharges.map(c=>c.n)),
+    citations:JSON.stringify(valgteCitations),
+    mistankt:{navn:document.getElementById('f-mistankt-navn').value.trim(),foedsel:document.getElementById('f-mistankt-foedsel').value.trim(),kon:document.getElementById('f-mistankt-kon').value,adresse:document.getElementById('f-mistankt-adresse').value.trim(),beskrivelse:document.getElementById('f-mistankt-beskrivelse').value.trim(),info:document.getElementById('f-mistankt-info').value.trim()},
+    medical:{magtanvendelse:document.getElementById('f-magt').checked,vaaben:document.getElementById('f-vaaben').value.trim(),skadestype:document.getElementById('f-skadestype').value.trim(),skadesdetaljer:document.getElementById('f-skadesdetaljer').value.trim(),transportDetaljer:document.getElementById('f-transport-detaljer').value.trim(),afslogBehandling:document.getElementById('f-afslog').checked,emsTransport:document.getElementById('f-ems').checked,andet:document.getElementById('f-medical-andet').value.trim()},
+    transport:erA?{selfTransport:document.getElementById('f-self-transport').checked,betjent:document.getElementById('f-transport-betjent').value.trim()}:null,
+    noter:document.getElementById('f-noter').value.trim(),
+  };
+  try {
+    const url    = editId ? `${backendUrl}/data/rapporter/${editId}` : `${backendUrl}/data/rapporter`;
+    const method = editId ? 'PUT' : 'POST';
+    const r=await fetch(url,{method,headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(data)});
+    const res=await r.json();
+    if(r.ok){
+      const nr = res.rapport_nr || '';
+      const besked = editId
+        ? (status==='indsendt'||status==='godkendt' ? nr+' · Discord opdateret' : nr+' · Kladde gemt')
+        : (status==='indsendt' ? nr+' · Sendt til Discord' : nr+' · Gemt som kladde');
+      toast('Rapport gemt', besked, 'succes');
+      editId = null;
+      lukFormular();
+      hentRapporter();
+    } else{toast('Fejl',res.fejl||'Ukendt fejl','fejl');}
+  } catch{toast('Fejl','Serverfejl — prøv igen','fejl');}
+  if(knap){knap.disabled=false;knap.textContent='📁 Send rapport til Discord';}
+}
+
+// POSTMESSAGE
+let _init=false;
+window.addEventListener('message',e=>{
+  const m=e.data||{};
+  if(m.type==='init'&&m.token){token=m.token;backendUrl = m.backend !== undefined ? m.backend : '';mig=m.bruger||null;if(!_init){_init=true;startSide();}}
+  if(m.type==='person_valgt'&&window._ventPersonOpslag){window._ventPersonOpslag=false;if(m.person){document.getElementById('f-mistankt-navn').value=m.person.roblox_navn||'';document.getElementById('f-mistankt-foedsel').value=m.person.foedselsdato||'';document.getElementById('f-mistankt-beskrivelse').value=m.person.beskrivelse||'';}}
+});
+window.parent.postMessage({type:'klar'},'*');
+setTimeout(()=>{if(!_init){try{token=window.parent.token||'';backendUrl = '';}catch{}if(token){_init=true;startSide();}}},800);
+
+  function hentAfdelinger() {
+    var vals = [];
+    var grid = document.getElementById('afdeling-grid') || document.getElementById('afdeling-grid-r');
+    if (grid) grid.querySelectorAll('input[type=checkbox]:checked').forEach(function(cb) { vals.push(cb.value); });
+    return vals.join(', ');
+  }
+  function saetAfdelinger(str) {
+    var vals = (str || '').split(',').map(function(s){ return s.trim(); });
+    var grid = document.getElementById('afdeling-grid') || document.getElementById('afdeling-grid-r');
+    if (grid) grid.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = vals.indexOf(cb.value) !== -1; });
+  }
+  function toast(t,x,k){try{window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}},'*');}catch{}}
+</script>
+</body>
+</html>

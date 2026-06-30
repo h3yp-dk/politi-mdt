@@ -1,0 +1,234 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { overflow-y: auto; padding: 24px; background: var(--bg); }
+  .profil-layout { display: grid; grid-template-columns: 280px 1fr; gap: 20px; max-width: 900px; }
+  .avatar-stor {
+    width: 80px; height: 80px; border-radius: 50%; overflow: hidden;
+    background: var(--accent); display: flex; align-items: center;
+    justify-content: center; font-size: 30px; font-weight: 700;
+    color: white; margin-bottom: 14px; border: 3px solid var(--border2);
+  }
+  .avatar-stor img { width: 100%; height: 100%; object-fit: cover; }
+  .profil-navn-stor { font-size: 20px; font-weight: 700; color: var(--white); }
+  .profil-rang { font-size: 13px; color: var(--accent2); margin-top: 4px; }
+  .profil-badge { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  .rang-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rang-valg {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 10px 12px; cursor: pointer;
+    transition: all 0.15s; text-align: center;
+  }
+  .rang-valg:hover { border-color: var(--border2); }
+  .rang-valg.valgt { border-color: var(--accent); background: var(--accent-glow); }
+  .rang-valg-titel { font-size: 13px; font-weight: 600; color: var(--white); }
+
+  .afdeling-grid { display: flex; flex-direction: column; gap: 4px; max-height: 200px; overflow-y: auto; background: var(--panel2); border: 1px solid var(--border2); border-radius: 5px; padding: 6px; }
+  .afdeling-valg { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
+  .afdeling-valg:hover { background: rgba(255,255,255,0.05); }
+  .afdeling-valg input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .afdeling-valg label { font-size: 12px; color: var(--text); cursor: pointer; margin: 0; }
+
+</style>
+</head>
+<body>
+
+<div style="max-width:900px;">
+  <h2 style="font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:20px;">Min Profil</h2>
+
+  <div class="profil-layout">
+
+    <!-- Venstre: info kort -->
+    <div>
+      <div class="card">
+        <div class="avatar-stor" id="avatar-vis">?</div>
+        <div class="profil-navn-stor" id="vis-navn">—</div>
+        <div class="profil-rang" id="vis-rang">—</div>
+        <div class="profil-badge mono" id="vis-badge">—</div>
+        <div class="divider-h"></div>
+        <div style="font-size:12px;color:var(--muted);">
+          <div style="margin-bottom:6px;">Discord: <span style="color:var(--text)" id="vis-discord">—</span></div>
+          <div>Godkendt: <span id="vis-godkendt">—</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Højre: redigér -->
+    <div class="card">
+      <div class="card-title">Rediger Oplysninger</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field">
+          <label>Fornavn</label>
+          <input type="text" id="fornavn" placeholder="Fornavn">
+        </div>
+        <div class="field">
+          <label>Efternavn</label>
+          <input type="text" id="efternavn" placeholder="Efternavn">
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="field">
+          <label>Tjenestenummer</label>
+          <input type="text" id="badge_nummer" placeholder="G2512" style="font-family:'Share Tech Mono',monospace;">
+        </div>
+        <div class="field">
+          <label>Vognummer</label><span style="font-size:10px;color:var(--muted2);"> (eks: B-1102)</span>
+          <input type="text" id="kaldesignal" placeholder="B-1102" style="font-family:'Share Tech Mono',monospace;">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Rang</label>
+        <div class="rang-grid" id="rang-grid">
+          <div class="rang-valg valgt" onclick="vaelgRang(this,'Betjent')"><div class="rang-valg-titel">Betjent</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Overbetjent')"><div class="rang-valg-titel">Overbetjent</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Kriminalbetjent')"><div class="rang-valg-titel">Kriminalbetjent</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Sergeant')"><div class="rang-valg-titel">Sergeant</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Inspektør')"><div class="rang-valg-titel">Inspektør</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politikommissær')"><div class="rang-valg-titel">Kommissær</div></div>
+  
+        <div class="field">
+          <label>Afdeling(er)</label>
+          <div class="afdeling-grid" id="afdeling-grid">
+          <div class="afdeling-valg"><input type="checkbox" id="afd-0" value="Reaktionssektionen"><label for="afd-0">Reaktionssektionen</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-1" value="Beredskabssektionen"><label for="afd-1">Beredskabssektionen</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-2" value="Kriminalteknisk Støttesektion"><label for="afd-2">Kriminalteknisk Støttesektion</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-3" value="Operativ Færdselssektion"><label for="afd-3">Operativ Færdselssektion</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-4" value="Operativ Special Afdeling"><label for="afd-4">Operativ Special Afdeling</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-5" value="Hundeføresektion"><label for="afd-5">Hundeføresektion</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-6" value="Indsatsledersektion"><label for="afd-6">Indsatsledersektion</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-7" value="Indsatslederassistentsektion"><label for="afd-7">Indsatslederassistentsektion</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-8" value="Rigspolitiet"><label for="afd-8">Rigspolitiet</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-9" value="PUUC: Underviser"><label for="afd-9">PUUC: Underviser</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-10" value="PUUC: Vejleder"><label for="afd-10">PUUC: Vejleder</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-11" value="Aktionsstyrken (PET)"><label for="afd-11">Aktionsstyrken (PET)</label></div>
+          <div class="afdeling-valg"><input type="checkbox" id="afd-12" value="Efterforsker (PET)"><label for="afd-12">Efterforsker (PET)</label></div>
+        </div>
+        </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+        <button class="btn" onclick="gemProfil()" id="gem-knap">💾 Gem ændringer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+  let token = '', backendUrl = '', mig = null;
+
+  async function startSide() {
+    if (!token) return;
+
+    const r = await fetch(`${backendUrl}/auth/mig`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) return;
+    const mig = await r.json();
+
+    // Udfyld felter
+    document.getElementById('fornavn').value      = mig.fornavn      || '';
+    document.getElementById('efternavn').value    = mig.efternavn    || '';
+    document.getElementById('badge_nummer').value = mig.badge_nummer || '';
+    document.getElementById('kaldesignal').value  = mig.kaldesignal  || '';
+    saetAfdelinger(mig.afdeling || '');
+
+    // Rang
+    valgtRang = mig.rang || 'Betjent';
+    document.querySelectorAll('.rang-valg').forEach(el => {
+      el.classList.toggle('valgt', el.querySelector('.rang-valg-titel')?.textContent === valgtRang);
+    });
+
+    // Vis-sektion
+    const avatar = document.getElementById('avatar-vis');
+    if (mig.discord_avatar) {
+      avatar.innerHTML = `<img src="https://cdn.discordapp.com/avatars/${mig.discord_id}/${mig.discord_avatar}.png?size=128">`;
+    } else {
+      avatar.textContent = (mig.fornavn || '?')[0];
+    }
+
+    document.getElementById('vis-navn').textContent    = mig.fornavn ? `${mig.fornavn} ${mig.efternavn}` : mig.discord_navn;
+    document.getElementById('vis-rang').textContent    = mig.rang ? `${mig.rang} · ${mig.afdeling}` : '—';
+    document.getElementById('vis-badge').textContent   = mig.badge_nummer ? `Tjeneste: ${mig.badge_nummer} · Vogn: ${mig.kaldesignal}` : '—';
+    document.getElementById('vis-discord').textContent = mig.discord_navn;
+    document.getElementById('vis-godkendt').innerHTML  = mig.godkendt
+      ? '<span class="badge badge-grøn">Godkendt</span>'
+      : '<span class="badge badge-gul">Afventer</span>';
+  }
+
+  function vaelgRang(el, rang) {
+    document.querySelectorAll('.rang-valg').forEach(v => v.classList.remove('valgt'));
+    el.classList.add('valgt'); valgtRang = rang;
+  }
+
+  async function gemProfil() {
+    const knap = document.getElementById('gem-knap');
+    knap.disabled = true; knap.textContent = 'Gemmer...';
+
+    try {
+      const r = await fetch(`${backendUrl}/auth/profil`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          fornavn:      document.getElementById('fornavn').value.trim(),
+          efternavn:    document.getElementById('efternavn').value.trim(),
+          badge_nummer: document.getElementById('badge_nummer').value.trim().toUpperCase(),
+          kaldesignal:  document.getElementById('kaldesignal').value.trim().toUpperCase(),
+          rang:         valgtRang,
+          afdeling:     hentAfdelinger()
+        })
+      });
+      const data = await r.json();
+      if (r.ok) {
+        if (data.token) { try { window.parent.postMessage({type:'nyt_token', token: data.token}, '*'); } catch{} }
+        toast('Gemt', 'Din profil er opdateret', 'succes');
+        startSide();
+      } else {
+        toast('Fejl', data.fejl, 'fejl');
+      }
+    } catch {
+      toast('Fejl', 'Kunne ikke gemme', 'fejl');
+    }
+
+    knap.disabled = false; knap.textContent = '💾 Gem ændringer';
+  }
+
+  
+
+  // PostMessage kommunikation med parent
+  let _init = false;
+  window.addEventListener('message', e => {
+    const m = e.data || {};
+    if (m.type === 'init' && m.token) {
+      token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger || null;
+      if (!_init) { _init = true; startSide(); }
+    }
+    if (m.type === 'cab_opdatering' && typeof onCabOpdatering === 'function') onCabOpdatering();
+  });
+  window.parent.postMessage({ type: 'klar' }, '*');
+  // Fallback
+  setTimeout(() => { if (!_init) { try { token = window.parent.token || ''; backendUrl = ''; } catch{} if (token) { _init = true; startSide(); } } }, 800);
+  
+  function hentAfdelinger() {
+    var vals = [];
+    document.querySelectorAll('#afdeling-grid input[type=checkbox]:checked').forEach(function(cb) {
+      vals.push(cb.value);
+    });
+    return vals.join(', ');
+  }
+  function saetAfdelinger(str) {
+    var vals = (str || '').split(',').map(function(s){ return s.trim(); });
+    document.querySelectorAll('#afdeling-grid input[type=checkbox]').forEach(function(cb) {
+      cb.checked = vals.indexOf(cb.value) !== -1;
+    });
+  }
+  function toast(t, x, k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}}, '*'); } catch{} }
+</script>
+</body>
+</html>

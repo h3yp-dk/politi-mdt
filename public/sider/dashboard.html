@@ -1,0 +1,306 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { overflow-y: auto; padding: 20px; background: var(--bg); }
+
+  h2 { font-size: 12px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  .dashboard-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; max-width: 1400px; }
+
+  /* Stat kort */
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-kort {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px;
+  }
+  .stat-tal { font-size: 28px; font-weight: 700; color: var(--white); line-height: 1; }
+  .stat-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+  .stat-kort.grøn .stat-tal { color: var(--green); }
+  .stat-kort.gul .stat-tal  { color: var(--yellow); }
+  .stat-kort.blå .stat-tal  { color: #93c5fd; }
+  .stat-kort.rød .stat-tal  { color: var(--red); }
+
+  /* Enheder liste */
+  .enhed-kort {
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px; margin-bottom: 6px;
+    display: flex; align-items: center; gap: 12px;
+    transition: border-color 0.15s;
+  }
+  .enhed-kort:hover { border-color: var(--border2); }
+  .enhed-status-bar { width: 3px; height: 36px; border-radius: 3px; flex-shrink: 0; }
+  .enhed-info { flex: 1; min-width: 0; }
+  .enhed-navn { font-size: 14px; font-weight: 600; color: var(--white); }
+  .enhed-detaljer { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .enhed-kaldesignal { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--accent2); }
+
+  /* Nødopkald side */
+  .noedopkald-kort {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; overflow: hidden;
+  }
+  .noedopkald-header {
+    padding: 12px 16px; background: var(--panel2);
+    border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .noedopkald-item {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  .noedopkald-item:hover { background: var(--panel2); }
+  .noedopkald-item:last-child { border-bottom: none; }
+  .noedopkald-type { font-size: 11px; color: var(--red); letter-spacing: 2px; text-transform: uppercase; font-weight: 700; }
+  .noedopkald-tekst { font-size: 13px; color: var(--white); font-weight: 600; margin: 3px 0; }
+  .noedopkald-lokation { font-size: 11px; color: var(--muted); }
+  .noedopkald-tid { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--muted2); margin-top: 4px; }
+
+  .tom-liste { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="stat-grid">
+  <div class="stat-kort grøn">
+    <div class="stat-tal" id="s-aktive">0</div>
+    <div class="stat-label">Aktive enheder</div>
+  </div>
+  <div class="stat-kort grøn">
+    <div class="stat-tal" id="s-tilgaengelig">0</div>
+    <div class="stat-label">Tilgængelig</div>
+  </div>
+  <div class="stat-kort gul">
+    <div class="stat-tal" id="s-optaget">0</div>
+    <div class="stat-label">Optaget</div>
+  </div>
+  <div class="stat-kort blå">
+    <div class="stat-tal" id="s-eftersaettelse">0</div>
+    <div class="stat-label">Eftersættelse</div>
+  </div>
+</div>
+
+<div class="dashboard-grid">
+
+  <!-- Enheder -->
+  <div>
+    <h2>Aktive Enheder</h2>
+    <div id="enheder-liste">
+      <div class="tom-liste">Indlæser enheder...</div>
+    </div>
+  </div>
+
+  <!-- Nødopkald -->
+  <div>
+    <h2>Seneste Nødopkald</h2>
+    <div class="noedopkald-kort">
+      <div id="noedopkald-liste">
+        <div class="tom-liste">Ingen aktive nødopkald</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const CAB_FARVER = {
+    patrulje: '#22c55e', tilgaengelig: '#22c55e', optaget: '#eab308',
+    eftersaettelse: '#3b82f6', utilgaengelig: '#ef4444',
+    out_of_service: '#6c7a96', offline: '#374151'
+  };
+  let token = '', backendUrl = '', mig = null;
+
+  async function startSide() {
+    hentData();
+    setInterval(hentData, 10000);
+  }
+
+  async function hentData() {
+    try {
+      const [enhederR, erlcR] = await Promise.all([
+        fetch(`${backendUrl}/cab`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${backendUrl}/erlc/live`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+
+      // Parse ERLC én gang
+      let erlcData = null;
+      if (erlcR && erlcR.ok) erlcData = await erlcR.json();
+
+      const erlcSpillere = erlcData?.politi || [];
+      const noedopkald   = erlcData?.noedopkald || [];
+
+      console.log('[DASHBOARD] Nødopkald:', noedopkald.length, noedopkald);
+
+      if (enhederR.ok) {
+        const enheder = await enhederR.json();
+        visEnheder(enheder, erlcSpillere);
+      }
+
+      visNoedopkald(noedopkald);
+
+    } catch(e) { console.error('[DASHBOARD] hentData fejl:', e); }
+  }
+
+  function visEnheder(mdtEnheder, erlcSpillere) {
+    const liste = document.getElementById('enheder-liste');
+
+    // Merge: MDT enheder + ER:LC spillere der ikke er i MDT (vises som offline)
+    const erlcEkstra = (erlcSpillere || []).filter(u => {
+      const erlcNavn = (u.Player || '').split(':')[0].toLowerCase();
+      const erlcCall = (u.Callsign || '').toLowerCase();
+      return !mdtEnheder.some(e =>
+        // Match på callsign
+        (e.kaldesignal || '').toLowerCase() === erlcCall ||
+        // Match på roblox_navn
+        (e.roblox_navn || '').toLowerCase() === erlcNavn
+      );
+    });
+
+    // Stats (kun MDT enheder tæller)
+    document.getElementById('s-aktive').textContent         = mdtEnheder.length + erlcEkstra.length;
+    document.getElementById('s-tilgaengelig').textContent   = mdtEnheder.filter(e => e.status === 'tilgaengelig' || e.status === 'patrulje').length;
+    document.getElementById('s-optaget').textContent        = mdtEnheder.filter(e => e.status === 'optaget').length;
+    document.getElementById('s-eftersaettelse').textContent = mdtEnheder.filter(e => e.status === 'eftersaettelse').length;
+
+    if (!mdtEnheder.length && !erlcEkstra.length) {
+      liste.innerHTML = '<div class="tom-liste">Ingen aktive enheder</div>';
+      return;
+    }
+
+    const mdtHtml = mdtEnheder.map(e => `
+      <div class="enhed-kort">
+        <div class="enhed-status-bar" style="background:${CAB_FARVER[e.status] || '#374151'}"></div>
+        <div class="enhed-info">
+          <div class="enhed-navn">${e.fornavn || ''} ${e.efternavn || e.discord_navn || ''}</div>
+          <div class="enhed-detaljer">${e.rang || ''} · ${e.afdeling || ''}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="enhed-kaldesignal">${e.kaldesignal || '—'}</div>
+          <div style="font-size:10px;color:${CAB_FARVER[e.status]};margin-top:3px;font-weight:600;">
+            ${e.status_label || e.status}
+          </div>
+        </div>
+      </div>`).join('');
+
+    // ER:LC spillere uden MDT konto — vises som offline/grå
+    const erlcHtml = erlcEkstra.map(u => `
+      <div class="enhed-kort" style="opacity:0.55">
+        <div class="enhed-status-bar" style="background:#374151"></div>
+        <div class="enhed-info">
+          <div class="enhed-navn">${(u.Player || '').split(':')[0] || '—'}</div>
+          <div class="enhed-detaljer">Police · I spillet</div>
+        </div>
+        <div style="text-align:right">
+          <div class="enhed-kaldesignal">${u.Callsign || '—'}</div>
+          <div style="font-size:10px;color:#374151;margin-top:3px;font-weight:600;">offline</div>
+        </div>
+      </div>`).join('');
+
+    liste.innerHTML = mdtHtml + erlcHtml;
+  }
+
+  // Track hvem der er tilmeldt hvilke opkald
+  const aktiveTilmeldinger = {};
+
+  function tilmeldOpkald(idx) {
+    const opkald = window._noedOpkald?.[idx] || {};
+    const id     = opkald.CallNumber || opkald.opkaldsnr || idx;
+    const mitPnr = mig?.badge_nummer || mig?.kaldesignal || '?';
+
+    // Tilmeld mig til opkaldet
+    if (!aktiveTilmeldinger[id]) aktiveTilmeldinger[id] = [];
+    if (!aktiveTilmeldinger[id].includes(mitPnr)) aktiveTilmeldinger[id].push(mitPnr);
+
+    // Sæt status til optaget
+    fetch(`${backendUrl}/cab/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: 'optaget' })
+    }).then(() => {
+      window.parent.postMessage({ type: 'cab_opdatering', data: { status: 'optaget' } }, '*');
+    }).catch(() => {});
+
+    // Send position til kortet
+    const pos = opkald.Position || opkald.position;
+    window.parent.postMessage({
+      type: 'vis_opkald_paa_kort',
+      data: {
+        position: pos,
+        beskrivelse: opkald.Description || opkald.beskrivelse,
+        lokation: opkald.PositionDescriptor || opkald.lokation,
+        callNumber: id
+      }
+    }, '*');
+
+    // Naviger til kortet
+    window.parent.postMessage({ type: 'naviger_til', side: 'kort' }, '*');
+    hentData();
+  }
+
+  function visNoedopkald(alleOpkald) {
+    const liste = document.getElementById('noedopkald-liste');
+
+    // Vis alle nødopkald - de er fra civile til politiet
+    const opkald = alleOpkald;
+
+    if (!opkald.length) {
+      liste.innerHTML = '<div class="tom-liste">Ingen aktive nødopkald</div>';
+      return;
+    }
+    liste.innerHTML = opkald.slice(0, 8).map((o, i) => {
+      // ER:LC felt-navne
+      const id       = o.CallNumber || o.opkaldsnr || i;
+      const beskr    = o.Description || o.beskrivelse || 'Ingen beskrivelse';
+      const lok      = o.PositionDescriptor || o.lokation || '—';
+      const tilmeldte = (aktiveTilmeldinger[id] || []).join(', ') || '—';
+      const idx = Date.now() + i;
+      window._noedOpkald = window._noedOpkald || {};
+      window._noedOpkald[idx] = o;
+      return `<div class="noedopkald-item" onclick="tilmeldOpkald(${idx})">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div style="flex:1;min-width:0;">
+            <div class="noedopkald-type">🚨 Nødopkald #${id}</div>
+            <div class="noedopkald-tekst">${beskr}</div>
+            <div class="noedopkald-lokation">📍 ${lok}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:9px;color:var(--muted2);letter-spacing:1px;">TILMELDTE</div>
+            <div style="font-size:11px;color:var(--accent2);font-family:'Share Tech Mono',monospace;">${tilmeldte}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // Lyt på CAB opdateringer fra parent
+  window.addEventListener('message', e => {
+    if (e.data?.type === 'cab_opdatering') hentData();
+    if (e.data?.type === 'tilmeld_opkald') {
+      const { callNumber, pnr } = e.data;
+      if (!aktiveTilmeldinger[callNumber]) aktiveTilmeldinger[callNumber] = [];
+      if (!aktiveTilmeldinger[callNumber].includes(pnr)) aktiveTilmeldinger[callNumber].push(pnr);
+      hentData();
+    }
+  });
+
+  
+
+  // PostMessage kommunikation med parent
+  let _init = false;
+  window.addEventListener('message', e => {
+    const m = e.data || {};
+    if (m.type === 'init' && m.token) {
+      token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger || null;
+      if (!_init) { _init = true; startSide(); }
+    }
+    if (m.type === 'cab_opdatering' && typeof onCabOpdatering === 'function') onCabOpdatering();
+  });
+  window.parent.postMessage({ type: 'klar' }, '*');
+  // Fallback
+  setTimeout(() => { if (!_init) { try { token = window.parent.token || ''; backendUrl = ''; } catch{} if (token) { _init = true; startSide(); } } }, 800);
+  function toast(t, x, k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}}, '*'); } catch{} }
+</script>
+</body>
+</html>

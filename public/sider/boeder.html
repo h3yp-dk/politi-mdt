@@ -1,0 +1,733 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+body { display: grid; grid-template-columns: 300px 1fr; height: 100vh; overflow: hidden; background: var(--bg); }
+
+.liste-side { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+.liste-header { padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.liste-header h2 { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); flex: 1; }
+.liste-scroll { overflow-y: auto; flex: 1; }
+
+.bode-item { padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; display: flex; gap: 10px; align-items: flex-start; }
+.bode-item:hover { background: var(--panel2); }
+.bode-item.valgt { background: rgba(234,179,8,0.06); border-left: 3px solid #eab308; }
+.bode-navn { font-size: 13px; font-weight: 600; color: var(--white); }
+.bode-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.bode-snippet { font-size: 11px; color: var(--muted2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+.bode-beloeb { font-size: 14px; font-weight: 700; color: #eab308; white-space: nowrap; }
+
+.hoved-side { display: flex; flex-direction: column; overflow: hidden; }
+.hoved-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.hoved-header h2 { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); flex: 1; }
+.hoved-scroll { overflow-y: auto; flex: 1; padding: 20px; }
+.tom-valg { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; color: var(--muted); }
+.tom-valg-ikon { font-size: 52px; opacity: 0.2; }
+
+/* Type modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.78); display: flex; align-items: center; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.modal-overlay.vis { opacity: 1; pointer-events: all; }
+
+/* Formular fullscreen */
+.form-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 90; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.form-overlay.vis { opacity: 1; pointer-events: all; }
+.form-topbar { height: 50px; border-bottom: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; padding: 0 20px; gap: 14px; flex-shrink: 0; }
+.form-scroll { overflow-y: auto; flex: 1; padding: 20px; max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+
+.fs { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+.fs-head { padding: 9px 16px; background: var(--politi-navy, #0a1628); border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.fs-body { padding: 14px 16px; }
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fg3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.ff label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 5px; }
+.ff input, .ff select, .ff textarea { width: 100%; box-sizing: border-box; background: var(--panel2); border: 1px solid var(--border2, #2d3a50); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 13px; padding: 7px 10px; border-radius: 5px; outline: none; transition: border-color 0.15s; }
+.ff input:focus, .ff select:focus, .ff textarea:focus { border-color: #eab308; }
+.ff textarea { resize: vertical; min-height: 80px; }
+.ff input.ro { opacity: 0.55; }
+
+/* Citation split */
+.split-layout { display: grid; grid-template-columns: 1fr 1fr; }
+.split-venstre { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.split-soeg { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.split-soeg input { width: 100%; box-sizing: border-box; background: var(--panel2); border: 1px solid var(--border2); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 12px; padding: 6px 10px; border-radius: 4px; outline: none; }
+.split-soeg input:focus { border-color: #eab308; }
+.split-liste { overflow-y: auto; max-height: 320px; }
+.gruppe-navn { padding: 6px 12px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+.gruppe-navn:hover { background: rgba(0,0,0,0.35); }
+.gruppe-navn .pil { font-size: 9px; transition: transform 0.15s; color: var(--muted2); }
+.gruppe-naam.aaben .pil, .gruppe-navn.aaben .pil { transform: rotate(90deg); }
+.gruppe-items { display: none; }
+.gruppe-items.vis { display: block; }
+.cit-punkt { padding: 7px 12px 7px 18px; font-size: 12px; color: var(--text); cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.1s; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cit-punkt:hover { background: rgba(234,179,8,0.06); }
+.cit-boed { font-size: 11px; color: #eab308; font-weight: 600; white-space: nowrap; }
+.arrestable-tag { font-size: 9px; color: #ef4444; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.2); border-radius: 3px; padding: 1px 5px; }
+.cit-para { font-size: 10px; color: var(--muted2); font-family: 'Share Tech Mono', monospace; }
+
+.split-hoejre { display: flex; flex-direction: column; }
+.split-hoejre-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.valgte-liste { padding: 8px 10px; overflow-y: auto; max-height: 320px; display: flex; flex-direction: column; gap: 4px; }
+.ingen-valgt { padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
+.valgt-cit { display: flex; align-items: center; gap: 8px; background: rgba(234,179,8,0.07); border: 1px solid rgba(234,179,8,0.2); border-radius: 5px; padding: 7px 10px; }
+.valgt-cit-navn { flex: 1; font-size: 12px; color: var(--white); }
+.valgt-cit-para { font-size: 10px; color: var(--muted2); font-family: 'Share Tech Mono', monospace; }
+.valgt-cit-boed { font-size: 11px; color: #eab308; font-weight: 600; }
+.valgt-fjern { color: var(--muted); cursor: pointer; font-size: 13px; }
+.valgt-fjern:hover { color: #f87171; }
+.total-bar { padding: 10px 14px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.total-lbl { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.total-val { font-size: 16px; font-weight: 700; color: #eab308; }
+
+.form-footer { padding: 10px 20px; border-top: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Visning */
+.v-sek { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.v-head { padding: 9px 16px; background: var(--politi-navy,#0a1628); border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.v-body { padding: 14px 16px; }
+.v-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.v-felt label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 3px; }
+.v-felt .val { font-size: 13px; color: var(--white); font-weight: 500; }
+.btag { display: inline-flex; align-items: center; background: rgba(234,179,8,0.08); border: 1px solid rgba(234,179,8,0.25); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: #eab308; margin: 3px; }
+
+  .afdeling-grid { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; background: var(--panel2); border: 1px solid var(--border2); border-radius: 5px; padding: 6px; }
+  .afdeling-valg { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
+  .afdeling-valg:hover { background: rgba(255,255,255,0.05); }
+  .afdeling-valg input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .afdeling-valg label { font-size: 12px; color: var(--text); cursor: pointer; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- LISTE -->
+<div class="liste-side">
+  <div class="liste-header">
+    <h2>Bøder</h2>
+    <button class="btn btn-sm" onclick="hentBoeder()">↻</button>
+    <button class="btn btn-sm btn-primary" id="ny-bode-knap">+ Ny</button>
+  </div>
+  <div class="liste-scroll" id="liste">
+    <div style="padding:20px;text-align:center;color:var(--muted)">Indlæser...</div>
+  </div>
+</div>
+
+<!-- HOVED -->
+<div class="hoved-side">
+  <div class="hoved-header"><h2>Bødedetaljer</h2></div>
+  <div class="hoved-scroll" id="hoved-indhold">
+    <div class="tom-valg">
+      <div class="tom-valg-ikon">📋</div>
+      <p>Vælg en bøde eller udsted en ny</p>
+      <button class="btn btn-primary" id="ny-bode-knap">+ Udsted bøde</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULAR -->
+<div class="form-overlay" id="form-overlay">
+  <div class="form-topbar">
+    <button class="btn btn-sm btn-outline" onclick="lukFormular()">← Tilbage</button>
+    <span style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--white);">Udsted bøde</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);" id="form-nr-label"></span>
+  </div>
+
+  <div class="form-scroll">
+
+    <!-- Betjent -->
+    <div class="fs">
+      <div class="fs-head">Udstedende betjent</div>
+      <div class="fs-body">
+        <div class="fg3" style="margin-bottom:10px;">
+          <div class="ff"><label>Navn</label><input type="text" id="f-navn" placeholder="Dit navn..."></div>
+          <div class="ff"><label>Rang</label><input type="text" id="f-rang" placeholder="Rang..."></div>
+          <div class="ff"><label>Tjenestenummer</label><input type="text" id="f-badge" placeholder="G2512"></div>
+        </div>
+        <div class="fg3">
+          <div class="ff"><label>Vognummer</label><input type="text" id="f-kaldesignal" placeholder="B-1102"></div>
+          <div class="ff"><label>Myndighed</label><input type="text" id="f-myndighed" value="Københavns Politi"></div>
+          <div class="ff"><label>Afdeling(er)</label><div class="afdeling-grid" id="afdeling-grid-r">
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-0" value="Reaktionssektionen"><label for="afdr-0">Reaktionssektionen</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-1" value="Beredskabssektionen"><label for="afdr-1">Beredskabssektionen</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-2" value="Kriminalteknisk Støttesektion"><label for="afdr-2">Kriminalteknisk Støttesektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-3" value="Operativ Færdselssektion"><label for="afdr-3">Operativ Færdselssektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-4" value="Operativ Special Afdeling"><label for="afdr-4">Operativ Special Afdeling</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-5" value="Hundeføresektion"><label for="afdr-5">Hundeføresektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-6" value="Indsatsledersektion"><label for="afdr-6">Indsatsledersektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-7" value="Indsatslederassistentsektion"><label for="afdr-7">Indsatslederassistentsektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-8" value="Rigspolitiet"><label for="afdr-8">Rigspolitiet</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-9" value="PUUC: Underviser"><label for="afdr-9">PUUC: Underviser</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-10" value="PUUC: Vejleder"><label for="afdr-10">PUUC: Vejleder</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-11" value="Aktionsstyrken (PET)"><label for="afdr-11">Aktionsstyrken (PET)</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-12" value="Efterforsker (PET)"><label for="afdr-12">Efterforsker (PET)</label></div>
+</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tidspunkt og sted -->
+    <div class="fs">
+      <div class="fs-head">Tidspunkt og lokation</div>
+      <div class="fs-body">
+        <div class="fg3" style="margin-bottom:10px;">
+          <div class="ff"><label>Dato</label><input type="text" id="f-dato" class="ro" readonly></div>
+          <div class="ff"><label>Tidspunkt</label><input type="text" id="f-tid" class="ro" readonly></div>
+          <div class="ff"><label>Bøde nr.</label><input type="text" id="f-nr" class="ro" readonly></div>
+        </div>
+        <div class="fg2">
+          <div class="ff"><label>Gade / Område</label><input type="text" id="f-lokation" placeholder="Eks. Freedom Avenue, Vesterbro..."></div>
+          <div class="ff"><label>Postnummer</label><input type="text" id="f-postnummer" placeholder="Eks. 2100"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Borger -->
+    <div class="fs">
+      <div class="fs-head">Borger / Modtager</div>
+      <div class="fs-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="f-cpr-soeg" placeholder="CPR-nummer (DDMMÅÅÅÅ-XXXX)..." style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;">
+          <button class="btn btn-outline" onclick="hentFraOpslag()">Hent fra CPR</button>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Navn (udfyldes fra CPR)</label><input type="text" id="f-borger-navn" placeholder="Hentes automatisk..."></div>
+          <div class="ff"><label>CPR-nummer</label><input type="text" id="f-borger-foedsel" placeholder="DDMMÅÅÅÅ-XXXX" style="font-family:'Share Tech Mono',monospace;"></div>
+        </div>
+        <div class="fg2">
+          <div class="ff"><label>Køn</label>
+            <select id="f-borger-kon">
+              <option value="">Vælg...</option>
+              <option value="Mand">Mand</option>
+              <option value="Kvinde">Kvinde</option>
+              <option value="Ukendt">Ukendt</option>
+            </select>
+          </div>
+          <div class="ff"><label>Adresse</label><input type="text" id="f-borger-adresse" placeholder="Eks. Franklin Court 12"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Køretøj (valgfrit) -->
+    <div class="fs">
+      <div class="fs-head">Køretøj (hvis relevant)</div>
+      <div class="fs-body">
+        <div class="fg3">
+          <div class="ff"><label>Nummerplade</label><input type="text" id="f-plade" placeholder="Eks. AB12345"></div>
+          <div class="ff"><label>Mærke / Model</label><input type="text" id="f-koeretoej" placeholder="Eks. BMW M3"></div>
+          <div class="ff"><label>Farve</label><input type="text" id="f-farve" placeholder="Eks. Sort"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Citations -->
+    <div class="fs">
+      <div class="fs-head">Overtrædelser — Straffeloven</div>
+      <div class="split-layout">
+        <div class="split-venstre">
+          <div class="split-soeg"><input type="text" id="cit-soeg" placeholder="Søg paragraf eller navn..." oninput="soegCitations(this.value)"></div>
+          <div class="split-liste" id="cit-liste"></div>
+        </div>
+        <div class="split-hoejre">
+          <div class="split-hoejre-header">Valgte overtrædelser</div>
+          <div class="valgte-liste" id="valgte-cit"><div class="ingen-valgt">Ingen overtrædelser valgt endnu</div></div>
+          <div class="total-bar">
+            <span class="total-lbl">Total bøde</span>
+            <span class="total-val" id="cit-total">kr. 0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bemærkninger -->
+    <div class="fs">
+      <div class="fs-head">Bemærkninger og betalingsfrist</div>
+      <div class="fs-body">
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff">
+            <label>Betalingsfrist <span style="color:var(--muted2);font-weight:400;font-size:9px;">(standard: 7 dage)</span></label>
+            <input type="text" id="f-betalingsfrist" placeholder="DD/MM/ÅÅÅÅ — eller lad stå tomt for 7 dage">
+          </div>
+          <div class="ff">
+            <label>Bøde nr. reference</label>
+            <input type="text" id="f-nr-ref" class="ro" readonly placeholder="Udfyldes automatisk">
+          </div>
+        </div>
+        <div class="ff"><label>Yderligere bemærkninger</label><textarea id="f-noter" style="min-height:80px;" placeholder="Eventuelle yderligere oplysninger om overtrædelsen..."></textarea></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="form-footer">
+    <button class="btn btn-outline" onclick="lukFormular()">Annuller</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-primary btn-lg" onclick="udstedBode()">Udsted bøde og send til e-Boks</button>
+  </div>
+</div>
+
+<script>
+// ── CITATIONS DATA ────────────────────────────────────────────────────────────
+const CITATIONS = [
+  { p:'§ 13 Stk. 1',  n:'Beruset i offentligheden',                       b:1000, a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 2',  n:'Offentlig urinering',                            b:500,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 3',  n:'Graffiti',                                       b:1000, a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 4',  n:'Henkastning af affald',                          b:489,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 5',  n:'Ophold uden formål',                             b:350,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 6',  n:'Blufærdighedskrænkelse',                         b:600,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 7',  n:'Forstyrrelse af freden',                         b:1000, a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 8',  n:'Ulovlig indtrængen',                             b:800,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 9',  n:'Rygning forbudt',                                b:150,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 10', n:'Åben beholder',                                  b:366,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 11', n:'Personligt brug af marihuana (under 10g)',       b:150,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 12', n:'Personligt brug af marihuana (over 10g)',        b:300,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 13', n:'Ulovlig krydsning af vej',                       b:50,   a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 13 Stk. 14', n:'Urimelig støj',                                  b:250,  a:false, kat:'Almindelige lovovertrædelser' },
+  { p:'§ 14 Stk. 1',  n:'Hastighedsoverskridelse (under 10 km/t)',        b:260,  a:false, kat:'Hastighedsovertrædelser' },
+  { p:'§ 14 Stk. 2',  n:'Hastighedsoverskridelse (10-15 km/t)',           b:370,  a:false, kat:'Hastighedsovertrædelser' },
+  { p:'§ 14 Stk. 3',  n:'Hastighedsoverskridelse (16-30 km/t)',           b:500,  a:false, kat:'Hastighedsovertrædelser' },
+  { p:'§ 14 Stk. 4',  n:'Hastighedsoverskridelse (over 30 km/t)',         b:700,  a:true,  kat:'Hastighedsovertrædelser' },
+  { p:'§ 14 Stk. 5',  n:'Racing på motorvejen',                           b:1000, a:true,  kat:'Hastighedsovertrædelser' },
+  { p:'§ 15 Stk. 1',  n:'Uforsvarligt vognbaneskift',                     b:238,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 2',  n:'Ulovlig U-vending',                              b:237,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 3',  n:'Manglende vigepligt',                            b:237,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 4',  n:'Uagtsom kørsel',                                 b:300,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 5',  n:'Manglende brug af blinklys',                     b:237,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 6',  n:'Manglende at vige for udrykningskøretøj',        b:490,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 7',  n:'Skyld i ulykke',                                 b:300,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 8',  n:'Manglende stop ved trafiksignal',                b:490,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 9',  n:'Kørsel mod stopskilt',                           b:238,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 10', n:'Krydse midterlinje eller spærreflade',           b:350,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 11', n:'Kørsel på motorcykel uden hjelm',                b:250,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 12', n:'Anvendelse af telefon under kørsel',             b:162,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 13', n:'Overdreven acceleration',                        b:190,  a:false, kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 14', n:'Kører den forkerte vej',                         b:400,  a:true,  kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 15', n:'Vanvidskørsel',                                  b:350,  a:true,  kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 16', n:'Forlader ulykkesstedet',                         b:300,  a:true,  kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 17', n:'Kørsel under påvirkning',                        b:1500, a:true,  kat:'Bevægelige overtrædelser' },
+  { p:'§ 15 Stk. 18', n:'Obstruktion af trafikflow',                      b:1000, a:true,  kat:'Bevægelige overtrædelser' },
+  { p:'§ 16 Stk. 1',  n:'Overdreven køretøjsstøj',                        b:250,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 2',  n:'Mangler forreste nummerplade',                   b:196,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 3',  n:'Revnet forrude',                                 b:130,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 4',  n:'Udløbet eller manglende synsmærke',              b:140,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 5',  n:'Uegnet køretøj',                                 b:600,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 6',  n:'Mangelfuld belysning',                           b:237,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 7',  n:'Overtrædelse af krav om sikkerhedssele',         b:162,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 8',  n:'Ulovlig toning',                                 b:110,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 16 Stk. 9',  n:'Åben beholder i køretøj',                        b:250,  a:false, kat:'Stillestående overtrædelser' },
+  { p:'§ 17 Stk. 1',  n:'Ingen forsikring',                               b:900,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 17 Stk. 2',  n:'Udløbet forsikring',                             b:600,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 17 Stk. 3',  n:'Ingen registrering',                             b:284,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 17 Stk. 4',  n:'Udløbet registrering',                           b:196,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 17 Stk. 5',  n:'Udgået kørekort',                                b:237,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 17 Stk. 6',  n:'Intet kørekort',                                 b:401,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 17 Stk. 7',  n:'Kørsel med suspenderet kørekort uden viden',     b:400,  a:false, kat:'Kørekort og forsikring' },
+  { p:'§ 18 Stk. 1',  n:'Blokerer brandhane',                             b:65,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 2',  n:'Parkering i brandzone',                          b:80,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 3',  n:'Overtrædelse af skiltet parkeringsforbud',       b:65,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 4',  n:'Blokerer indkørsel, overgang eller fortov',      b:65,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 5',  n:'Parkering mod færdselsretningen',                b:65,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 6',  n:'Parkering i buszone',                            b:250,  a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 7',  n:'Dobbeltparkering',                               b:65,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 8',  n:'Parkering i handicapzone',                       b:421,  a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 9',  n:'Parkering i handicapzone — 2. overtrædelse',     b:625,  a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 10', n:'Parkering i handicapzone — 3. overtrædelse',     b:825,  a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 11', n:'Parkering på privat ejendom',                    b:65,   a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 12', n:'Parkering på fortov',                            b:120,  a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 18 Stk. 13', n:'Efterladt køretøj',                              b:200,  a:false, kat:'Parkeringsforbrydelser' },
+  { p:'§ 19 Stk. 1',  n:'Advarsel — ulovlig hastighed',                   b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 2',  n:'Advarsel — sikkerhedssele',                      b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 3',  n:'Advarsel — blinklys',                            b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 4',  n:'Advarsel — ulovlig toning',                      b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 5',  n:'Advarsel — ulovlig U-vending',                   b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 6',  n:'Advarsel — mangelfuld belysning',                b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 7',  n:'Advarsel — parkeringsforbrydelser',              b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 8',  n:'Advarsel — udløbet syn',                         b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 9',  n:'Advarsel — distraheret kørsel',                  b:0,    a:false, kat:'Advarsler' },
+  { p:'§ 19 Stk. 10', n:'Advarsel — for kort afstand',                    b:0,    a:false, kat:'Advarsler' },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let token='', backendUrl='', mig=null;
+let alleBoeder=[], valgteCit=[];
+let editId=null;
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function startSide() {
+  document.querySelectorAll('#ny-bode-knap').forEach(el => el.onclick = () => aabneFormular());
+  const nu = new Date();
+  document.getElementById('f-dato').value = nu.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
+  document.getElementById('f-tid').value  = nu.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+  if (mig) {
+    document.getElementById('f-navn').value        = mig.roblox_brugernavn || mig.discord_navn || '';
+    document.getElementById('f-rang').value        = mig.rang || '';
+    document.getElementById('f-badge').value       = mig.badge_nummer || '';
+    document.getElementById('f-kaldesignal').value = mig.kaldesignal || '';
+    saetAfdelinger(mig.afdeling || '');
+  }
+  byggCitListe();
+  await hentBoeder();
+}
+
+// ── LISTE ─────────────────────────────────────────────────────────────────────
+async function hentBoeder() {
+  try {
+    const r = await fetch(`${backendUrl}/data/boeder`, { headers: { Authorization: `Bearer ${token}` } });
+    alleBoeder = await r.json();
+    visListe(alleBoeder);
+  } catch {
+    document.getElementById('liste').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Kunne ikke hente bøder</div>';
+  }
+}
+
+function visListe(boeder) {
+  const el = document.getElementById('liste');
+  if (!boeder.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Ingen bøder endnu</div>';
+    return;
+  }
+  el.innerHTML = boeder.map(b => {
+    const para = JSON.parse(b.paragraffer || '[]');
+    const sb = b.status === 'betalt' ? 'badge-grøn' : 'badge-gul';
+    return `<div class="bode-item" onclick="visBode(${b.id}, this)">
+      <div style="flex:1;min-width:0">
+        <div class="bode-navn">${b.borger_navn}</div>
+        <div class="bode-meta">${b.bode_nr} · ${b.udstedt_af_navn||'—'} · ${new Date(b.oprettet).toLocaleDateString('da-DK')}</div>
+        <div class="bode-snippet">${para.slice(0,3).join(' · ')}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="bode-beloeb">kr. ${Number(b.beloeb).toLocaleString('da-DK')}</div>
+        <span class="badge ${sb}" style="font-size:9px;">${b.status}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function visBode(id, el) {
+  document.querySelectorAll('.bode-item').forEach(i => i.classList.remove('valgt'));
+  if (el) el.classList.add('valgt');
+  const b = alleBoeder.find(x => x.id === id);
+  if (!b) return;
+  const para = JSON.parse(b.paragraffer || '[]');
+  const sb = b.status === 'betalt' ? 'badge-grøn' : 'badge-gul';
+  document.getElementById('hoved-indhold').innerHTML = `
+    <div class="v-sek">
+      <div class="v-head">Bøde — <span class="badge ${sb}">${b.status}</span></div>
+      <div class="v-body">
+        <div class="v-grid" style="margin-bottom:10px;">
+          <div class="v-felt"><label>Bøde nr.</label><div class="val">${b.bode_nr}</div></div>
+          <div class="v-felt"><label>Borger</label><div class="val">${b.borger_navn}</div></div>
+          <div class="v-felt"><label>Beløb</label><div class="val" style="color:#eab308;font-size:18px;">kr. ${Number(b.beloeb).toLocaleString('da-DK')}</div></div>
+          <div class="v-felt"><label>Dato</label><div class="val">${new Date(b.oprettet).toLocaleDateString('da-DK')}</div></div>
+          <div class="v-felt"><label>Udstedt af</label><div class="val">${b.udstedt_af_navn||'—'}</div></div>
+          <div class="v-felt"><label>Lokation</label><div class="val">${b.lokation||'—'}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="v-sek">
+      <div class="v-head">Overtrædelser (${para.length})</div>
+      <div class="v-body">${para.map(p=>`<span class="btag">${p}</span>`).join('')}</div>
+    </div>
+    ${b.beskrivelse ? `<div class="v-sek"><div class="v-head">Bemærkninger</div><div class="v-body"><div style="font-size:13px;color:var(--text);line-height:1.6;">${b.beskrivelse}</div></div></div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-lg" style="flex:1;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:#eab308;" onclick="aabneRediger(${b.id})">Rediger bøde</button>
+      ${b.status === 'ubetalt'
+        ? `<button class="btn btn-lg" style="flex:1;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#86efac;" onclick="markerBetalt(${b.id})">Marker som betalt</button>`
+        : `<button class="btn btn-lg btn-outline" style="flex:1;opacity:0.5;" disabled>Betalt</button>`
+      }
+    </div>
+  `;
+}
+
+// ── FORMULAR ──────────────────────────────────────────────────────────────────
+function aabneFormular() {
+  editId = null;
+  valgteCit = [];
+  const knap = document.querySelector('.form-footer .btn-primary');
+  if (knap) knap.textContent = 'Udsted bøde og send til e-Boks';
+  const nr = 'B-' + Date.now().toString().slice(-6);
+  document.getElementById('f-nr').value = nr;
+  document.getElementById('form-nr-label').textContent = nr;
+  ['f-borger-navn','f-borger-foedsel','f-borger-adresse','f-lokation','f-postnummer',
+   'f-plade','f-koeretoej','f-farve','f-noter','f-betalingsfrist'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+  document.getElementById('f-borger-kon').value = '';
+  opdaterValgteCit();
+  byggCitListe();
+  document.getElementById('cit-soeg').value = '';
+  document.getElementById('form-overlay').classList.add('vis');
+}
+function lukFormular() { document.getElementById('form-overlay').classList.remove('vis'); }
+
+// ── CITATIONS ─────────────────────────────────────────────────────────────────
+function byggCitListe(filter='') {
+  const container = document.getElementById('cit-liste');
+  const fl = filter.toLowerCase();
+  const kategorier = [...new Set(CITATIONS.map(c => c.kat))];
+  let html = '';
+  kategorier.forEach((kat, ki) => {
+    const match = CITATIONS.filter(c => c.kat === kat && (!fl || c.n.toLowerCase().includes(fl) || c.p.toLowerCase().includes(fl)));
+    if (!match.length) return;
+    html += `<div class="gruppe-navn${fl?' aaben':''}" onclick="toggleGruppe(this,'citg-${ki}')"><span class="pil">▶</span>${kat}</div>
+    <div class="gruppe-items${fl?' vis':''}" id="citg-${ki}">${match.map(c => `
+      <div class="cit-punkt" onclick="tilfoejCit('${escQ(c.p)}','${escQ(c.n)}',${c.b},${c.a})">
+        <span style="flex:1">${c.n}</span>
+        <span style="display:flex;gap:5px;align-items:center;flex-shrink:0;">
+          ${c.a ? '<span class="arrestable-tag">Kan anholdes</span>' : ''}
+          <span class="cit-para">${c.p}</span>
+          <span class="cit-boed">kr. ${c.b.toLocaleString('da-DK')}</span>
+        </span>
+      </div>`).join('')}</div>`;
+  });
+  container.innerHTML = html || '<div style="padding:12px;text-align:center;font-size:12px;color:var(--muted)">Ingen resultater</div>';
+}
+
+function escQ(s) { return (s||'').split("'").join("\\'"); }
+function soegCitations(q) { byggCitListe(q); }
+function toggleGruppe(el, id) { el.classList.toggle('aaben'); const items = document.getElementById(id); if(items) items.classList.toggle('vis'); }
+
+function tilfoejCit(para, navn, bøde, arrestable) {
+  if (valgteCit.find(c => c.p === para)) return;
+  valgteCit.push({ p: para, n: navn, b: bøde, a: arrestable });
+  opdaterValgteCit();
+}
+function fjernCit(para) {
+  valgteCit = valgteCit.filter(c => c.p !== para);
+  opdaterValgteCit();
+}
+function opdaterValgteCit() {
+  const el = document.getElementById('valgte-cit');
+  if (!valgteCit.length) {
+    el.innerHTML = '<div class="ingen-valgt">Ingen overtrædelser valgt endnu</div>';
+    document.getElementById('cit-total').textContent = 'kr. 0';
+    return;
+  }
+  el.innerHTML = valgteCit.map(c => `
+    <div class="valgt-cit">
+      <div style="flex:1">
+        <div class="valgt-cit-navn">${c.n}${c.a?' <span style="color:#ef4444;font-size:10px;">[Kan anholdes]</span>':''}</div>
+        <div class="valgt-cit-para">${c.p}</div>
+      </div>
+      <span class="valgt-cit-boed">kr. ${c.b.toLocaleString('da-DK')}</span>
+      <span class="valgt-fjern" onclick="fjernCit('${escQ(c.p)}')">✕</span>
+    </div>`).join('');
+  const total = valgteCit.reduce((s,c) => s + c.b, 0);
+  document.getElementById('cit-total').textContent = 'kr. ' + total.toLocaleString('da-DK');
+}
+
+
+// ── MARKER BETALT ────────────────────────────────────────────────────────────
+async function markerBetalt(id) {
+  try {
+    const r = await fetch(`${backendUrl}/data/boeder/${id}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ status: 'betalt' })
+    });
+    if (r.ok) {
+      toast('Betalt', 'Bøden er markeret som betalt', 'succes');
+      await hentBoeder();
+      // Opdater visning
+      const b = alleBoeder.find(x => x.id === id);
+      if (b) visBode(id, null);
+    } else { toast('Fejl','Kunne ikke opdatere status','fejl'); }
+  } catch { toast('Fejl','Serverfejl','fejl'); }
+}
+
+// ── REDIGER BØDE ──────────────────────────────────────────────────────────────
+async function aabneRediger(id) {
+  const b = alleBoeder.find(x => x.id === id);
+  if (!b) return;
+
+  editId = id;
+  valgteCit = [];
+
+  // Parse eksisterende paragraffer tilbage til citation-format
+  const para = JSON.parse(b.paragraffer || '[]');
+  valgteCit = para.map(p => {
+    const parts = p.split(' — ');
+    // Prøv at finde bødebeløb fra CITATIONS data
+    const match = CITATIONS.find(c => c.p === parts[0] || p.includes(c.n));
+    return { p: parts[0] || p, n: parts.slice(1).join(' — ') || p, b: match?.b || 0, a: match?.a || false };
+  });
+
+  // Udfyld formular
+  const nr = b.bode_nr;
+  document.getElementById('f-nr').value = nr;
+  document.getElementById('form-nr-label').textContent = nr;
+
+  // Betjent
+  document.getElementById('f-navn').value        = mig?.roblox_brugernavn || mig?.discord_navn || '';
+  document.getElementById('f-rang').value        = mig?.rang || '';
+  document.getElementById('f-badge').value       = mig?.badge_nummer || '';
+  document.getElementById('f-kaldesignal').value = mig?.kaldesignal || '';
+
+  // Dato
+  const oprettet = b.oprettet ? new Date(b.oprettet) : new Date();
+  document.getElementById('f-dato').value = oprettet.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
+  document.getElementById('f-tid').value  = oprettet.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+
+  // Borger
+  document.getElementById('f-borger-navn').value    = b.borger_navn || '';
+  document.getElementById('f-borger-foedsel').value = '';
+  document.getElementById('f-borger-kon').value     = '';
+  document.getElementById('f-borger-adresse').value = '';
+
+  // Lokation
+  document.getElementById('f-lokation').value    = b.lokation || '';
+  document.getElementById('f-postnummer').value  = '';
+
+  // Køretøj
+  document.getElementById('f-plade').value     = b.nummerplade || '';
+  document.getElementById('f-koeretoej').value = '';
+  document.getElementById('f-farve').value     = '';
+
+  // Bemærkninger
+  document.getElementById('f-noter').value         = b.beskrivelse || '';
+  document.getElementById('f-betalingsfrist').value = '';
+
+  opdaterValgteCit();
+  byggCitListe();
+  document.getElementById('cit-soeg').value = '';
+
+  // Opdater knap
+  const knap = document.querySelector('.form-footer .btn-primary');
+  if (knap) knap.textContent = 'Opdater bøde og send til e-Boks';
+
+  document.getElementById('form-overlay').classList.add('vis');
+}
+
+// ── UDSTED BØDE ───────────────────────────────────────────────────────────────
+async function udstedBode() {
+  const borgerNavn = document.getElementById('f-borger-navn').value.trim();
+  if (!borgerNavn) { toast('Mangler info','Udfyld borgerens navn','fejl'); return; }
+  if (!valgteCit.length) { toast('Mangler overtrædelser','Vælg mindst én overtrædelse','fejl'); return; }
+
+  const knap = document.querySelector('.form-footer .btn-primary');
+  knap.disabled = true; knap.textContent = 'Sender...';
+
+  const total = valgteCit.reduce((s,c) => s + c.b, 0);
+  const paragraffer = valgteCit.map(c => `${c.p} — ${c.n}`);
+
+  const data = {
+    borger_navn: borgerNavn,
+    beloeb:      total,
+    paragraffer,
+    beskrivelse: document.getElementById('f-noter').value.trim() || null,
+    lokation:    document.getElementById('f-lokation').value.trim() || null,
+    nummerplade: document.getElementById('f-plade').value.trim() || null,
+    // ekstra felter til discord
+    betjent_data: {
+      navn:      document.getElementById('f-navn').value.trim(),
+      rang:      document.getElementById('f-rang').value.trim(),
+      badge:     document.getElementById('f-badge').value.trim(),
+      signal:    document.getElementById('f-kaldesignal').value.trim(),
+      afdeling:  hentAfdelinger(),
+      myndighed: document.getElementById('f-myndighed').value.trim(),
+    },
+    borger_data: {
+      foedsel:  document.getElementById('f-borger-foedsel').value.trim(),
+      kon:      document.getElementById('f-borger-kon').value,
+      adresse:  document.getElementById('f-borger-adresse').value.trim(),
+    },
+    koeretoej_data: {
+      plade:    document.getElementById('f-plade').value.trim(),
+      model:    document.getElementById('f-koeretoej').value.trim(),
+      farve:    document.getElementById('f-farve').value.trim(),
+    },
+    postnummer:      document.getElementById('f-postnummer').value.trim(),
+    betalingsfrist:  document.getElementById('f-betalingsfrist').value.trim() || null,
+    dato:            document.getElementById('f-dato').value,
+    tid:             document.getElementById('f-tid').value,
+    bode_nr:         document.getElementById('f-nr').value,
+  };
+
+  try {
+    // Slet gammel hvis redigering
+    if (editId) {
+      await fetch(`${backendUrl}/data/boeder/${editId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+
+    const r = await fetch(`${backendUrl}/data/boeder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data)
+    });
+    const res = await r.json();
+    if (r.ok) {
+      const besked = editId
+        ? `${borgerNavn} · kr. ${total.toLocaleString('da-DK')} · e-Boks opdateret`
+        : `${borgerNavn} · kr. ${total.toLocaleString('da-DK')} · Sendt til e-Boks`;
+      toast(editId ? 'Bøde opdateret' : 'Bøde udstedt', besked, 'succes');
+      editId = null;
+      lukFormular();
+      hentBoeder();
+    } else {
+      toast('Fejl', res.fejl || 'Ukendt fejl', 'fejl');
+    }
+  } catch { toast('Fejl','Serverfejl — prøv igen','fejl'); }
+  knap.disabled = false; knap.textContent = 'Udsted bøde og send til e-Boks';
+}
+
+function hentFraOpslag() {
+  var cprEl = document.getElementById('f-cpr-soeg');
+  var query = cprEl ? cprEl.value.trim() : '';
+  if (!query) { toast('Mangler CPR', 'Indtast et CPR-nummer', 'fejl'); return; }
+  toast('Søger...', 'Leder i identifikationskanalen...', 'info');
+  var q2 = query.replace(/-/g,'').replace(/ /g,'');
+  var erCPR = q2.length === 12 && q2.split('').every(function(c) { return c >= '0' && c <= '9'; });
+  var url = erCPR
+    ? backendUrl + '/data/identifikation/cpr/' + encodeURIComponent(query)
+    : backendUrl + '/data/identifikation/' + encodeURIComponent(query);
+  fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+  .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw e; }); })
+  .then(function(person) {
+    var visNavn = person.navn || person.rp_navn || person.roblox_navn || person.tråd_navn || '';
+    var el;
+    el = document.getElementById('f-borger-navn');    if (el) el.value = visNavn;
+    el = document.getElementById('f-borger-foedsel'); if (el) el.value = person.cpr || person.foedselsdato || query;
+    el = document.getElementById('f-borger-kon');     if (el && person.kon) el.value = person.kon;
+    el = document.getElementById('f-borger-adresse'); if (el) el.value = person.adresse || '';
+    toast('Fundet', visNavn + ' — Data indsat', 'succes');
+  })
+  .catch(function(e) { toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+}
+
+// ── POSTMESSAGE ───────────────────────────────────────────────────────────────
+let _init = false;
+window.addEventListener('message', e => {
+  const m = e.data || {};
+  if (m.type === 'init' && m.token) {
+    token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger || null;
+    if (!_init) { _init = true; startSide(); }
+  }
+  if (m.type === 'person_valgt' && window._ventPersonOpslag) {
+    window._ventPersonOpslag = false;
+    if (m.person) {
+      document.getElementById('f-borger-navn').value   = m.person.roblox_navn || '';
+      document.getElementById('f-borger-foedsel').value= m.person.foedselsdato || '';
+    }
+  }
+});
+window.parent.postMessage({ type: 'klar' }, '*');
+setTimeout(() => { if (!_init) { try { token = window.parent.token||''; backendUrl = ''; } catch{} if (token) { _init=true; startSide(); } } }, 800);
+
+  function hentAfdelinger() {
+    var vals = [];
+    var grid = document.getElementById('afdeling-grid') || document.getElementById('afdeling-grid-r');
+    if (grid) grid.querySelectorAll('input[type=checkbox]:checked').forEach(function(cb) { vals.push(cb.value); });
+    return vals.join(', ');
+  }
+  function saetAfdelinger(str) {
+    var vals = (str || '').split(',').map(function(s){ return s.trim(); });
+    var grid = document.getElementById('afdeling-grid') || document.getElementById('afdeling-grid-r');
+    if (grid) grid.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = vals.indexOf(cb.value) !== -1; });
+  }
+  function toast(t,x,k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}},'*'); } catch{} }
+</script>
+</body>
+</html>

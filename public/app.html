@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dansk Politi MDT</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--bg); }
+
+  .topbar {
+    height:52px; flex-shrink:0; background:var(--politi-navy);
+    border-bottom:2px solid rgba(26,110,245,0.4);
+    display:flex; align-items:center; padding:0 14px; gap:8px; position:relative;
+  }
+  .topbar::after {
+    content:''; position:absolute; top:0; left:0; right:0; height:100%;
+    background:repeating-linear-gradient(90deg,transparent 0px,transparent 40px,rgba(255,255,255,0.015) 40px,rgba(255,255,255,0.015) 41px);
+    pointer-events:none;
+  }
+
+  .logo-blok { display:flex; align-items:center; gap:8px; padding-right:14px; border-right:1px solid rgba(255,255,255,0.1); margin-right:6px; }
+  .logo-img { width:30px; height:30px; object-fit:contain; }
+  .logo-tekst { font-size:13px; font-weight:700; color:var(--white); letter-spacing:3px; text-transform:uppercase; }
+
+  .nav { display:flex; gap:2px; flex:1; }
+  .nav-knap {
+    padding:5px 11px; border-radius:4px; font-size:11px; font-weight:600;
+    letter-spacing:1px; cursor:pointer; border:none; background:transparent;
+    color:rgba(255,255,255,0.45); text-transform:uppercase; transition:all 0.15s;
+    display:flex; align-items:center; gap:5px; white-space:nowrap;
+    font-family:'Rajdhani',sans-serif;
+  }
+  .nav-knap:hover { color:rgba(255,255,255,0.8); background:rgba(255,255,255,0.06); }
+  .nav-knap.aktiv { color:var(--white); background:rgba(26,110,245,0.18); border-bottom:2px solid var(--accent); }
+
+  .topbar-højre { display:flex; align-items:center; gap:10px; margin-left:auto; }
+
+  .ur { font-family:'Share Tech Mono',monospace; font-size:14px; color:var(--accent2);
+    letter-spacing:2px; background:rgba(0,0,0,0.2); padding:3px 10px; border-radius:3px;
+    border:1px solid rgba(26,110,245,0.2); }
+
+  .sep { width:1px; height:24px; background:rgba(255,255,255,0.1); }
+
+  .cab-knap { display:flex; align-items:center; gap:7px; background:rgba(0,0,0,0.25);
+    border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:5px 12px;
+    cursor:pointer; transition:all 0.15s; font-family:'Rajdhani',sans-serif; }
+  .cab-knap:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.18); }
+  .cab-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+  .cab-label { font-size:12px; font-weight:600; color:var(--white); letter-spacing:0.5px; }
+  .cab-pil { font-size:8px; color:rgba(255,255,255,0.4); }
+
+  .avatar { width:32px; height:32px; border-radius:50%; background:var(--politi-blå);
+    display:flex; align-items:center; justify-content:center; font-size:13px;
+    font-weight:700; color:white; cursor:pointer; border:2px solid rgba(255,255,255,0.15);
+    overflow:hidden; flex-shrink:0; transition:border-color 0.15s; }
+  .avatar:hover { border-color:var(--accent); }
+  .avatar img { width:100%; height:100%; object-fit:cover; }
+
+  .dropdown { position:fixed; z-index:500; background:var(--politi-navy);
+    border:1px solid rgba(255,255,255,0.12); border-radius:6px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.6),0 0 0 1px rgba(26,110,245,0.1);
+    display:none; animation:fadeIn 0.12s ease; }
+  .dropdown.vis { display:block; }
+
+  #cab-dd { top:58px; right:100px; min-width:200px; padding:6px; }
+  .cab-valg { display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:4px; cursor:pointer; transition:background 0.1s; font-family:'Rajdhani',sans-serif; }
+  .cab-valg:hover { background:rgba(255,255,255,0.07); }
+  .cab-valg.aktiv { background:rgba(26,110,245,0.12); }
+  .cab-valg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .cab-valg-label { font-size:13px; font-weight:600; }
+
+  #profil-dd { top:58px; right:14px; min-width:220px; overflow:hidden; }
+  .profil-hdr { padding:14px 16px; background:rgba(0,0,0,0.2); border-bottom:1px solid rgba(255,255,255,0.08); }
+  .profil-navn { font-size:14px; font-weight:700; color:var(--white); }
+  .profil-sub { font-size:11px; color:var(--muted); margin-top:3px; }
+  .dd-item { display:flex; align-items:center; gap:10px; padding:9px 14px;
+    cursor:pointer; font-size:13px; color:var(--text); transition:background 0.1s;
+    font-family:'Rajdhani',sans-serif; font-weight:500; }
+  .dd-item:hover { background:rgba(255,255,255,0.06); }
+  .dd-item.rød { color:#f87171; }
+
+  .indhold { flex:1; overflow:hidden; position:relative; }
+  .side { position:absolute; inset:0; display:none; }
+  .side.aktiv { display:block; }
+  .side iframe { width:100%; height:100%; border:none; }
+
+  #toasts { position:fixed; bottom:16px; right:16px; z-index:9999; display:flex; flex-direction:column; gap:6px; }
+  .toast { background:var(--politi-navy); border:1px solid rgba(255,255,255,0.1); border-radius:6px;
+    padding:10px 14px; min-width:260px; display:flex; align-items:flex-start; gap:10px;
+    animation:slideIn 0.2s ease; box-shadow:0 4px 20px rgba(0,0,0,0.5); }
+  .toast.succes { border-left:3px solid var(--green); }
+  .toast.fejl   { border-left:3px solid var(--red); }
+  .toast.info   { border-left:3px solid var(--accent); }
+  .toast-icon { font-size:15px; flex-shrink:0; }
+  .toast-body { font-size:13px; color:var(--text); font-family:'Rajdhani',sans-serif; }
+  .toast-title { font-weight:700; margin-bottom:1px; color:var(--white); }
+  @keyframes slideIn { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+
+  #noedopkald-boks { position:fixed; top:60px; right:16px; z-index:8000; display:flex; flex-direction:column; gap:8px; max-width:320px; }
+  .noed-popup { background:var(--politi-navy); border:2px solid var(--red); border-left:4px solid var(--red);
+    border-radius:6px; padding:12px 14px; animation:pulsRed 1.2s infinite;
+    box-shadow:0 0 20px rgba(239,68,68,0.2); font-family:'Rajdhani',sans-serif; }
+  .noed-top { font-size:10px; color:var(--red); font-weight:700; letter-spacing:3px; text-transform:uppercase; margin-bottom:5px; }
+  .noed-tekst { font-size:14px; color:var(--white); font-weight:700; }
+  .noed-lok { font-size:12px; color:var(--muted); margin-top:3px; }
+  .noed-knapper { display:flex; gap:6px; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo-blok">
+    <img src="/assets/logo_primær.png" class="logo-img" alt="Politi">
+    <span class="logo-tekst">Politi MDT</span>
+  </div>
+
+  <div class="nav">
+    <button class="nav-knap aktiv" onclick="visSide('dashboard')" data-side="dashboard">🏠 Dashboard</button>
+    <button class="nav-knap" onclick="visSide('kort')" data-side="kort">🗺 Kort</button>
+    <button class="nav-knap" onclick="visSide('opslag')" data-side="opslag">🔍 Opslag</button>
+    <button class="nav-knap" onclick="visSide('boeder')" data-side="boeder">📋 Bøder</button>
+    <button class="nav-knap" onclick="visSide('anholdelser')" data-side="anholdelser">🚨 Anholdelser</button>
+    <button class="nav-knap" onclick="visSide('rapporter')" data-side="rapporter">📁 Rapporter</button>
+    <button class="nav-knap" onclick="visSide('retssager')" data-side="retssager">⚖️ Retssager</button>
+  </div>
+
+  <div class="topbar-højre">
+    <div class="ur" id="ur">00:00:00</div>
+    <div class="sep"></div>
+    <div class="cab-knap" onclick="toggleDD('cab-dd')" id="cab-knap">
+      <div class="cab-dot" id="cab-dot"></div>
+      <div class="cab-label" id="cab-label">Out of Service</div>
+      <span class="cab-pil">▼</span>
+    </div>
+    <div class="avatar" onclick="toggleDD('profil-dd')" id="avatar">?</div>
+  </div>
+</div>
+
+<div class="dropdown" id="cab-dd"></div>
+<div class="dropdown" id="profil-dd">
+  <div class="profil-hdr">
+    <div class="profil-navn" id="pd-navn">—</div>
+    <div class="profil-sub" id="pd-sub">—</div>
+  </div>
+  <div class="dd-item" onclick="visSide('profil');lukDD()">👤 Rediger profil</div>
+  <div class="dd-item" onclick="visSide('admin');lukDD()" id="admin-item" style="display:none">⚙️ Admin</div>
+  <div class="dd-item rød" onclick="logUd()">🚪 Log ud</div>
+</div>
+
+<div class="indhold">
+  <div class="side aktiv" id="side-dashboard"><iframe id="ifr-dashboard" src="/sider/dashboard"></iframe></div>
+  <div class="side" id="side-kort"><iframe id="ifr-kort" src="/sider/kort"></iframe></div>
+  <div class="side" id="side-opslag"><iframe id="ifr-opslag" src="/sider/opslag"></iframe></div>
+  <div class="side" id="side-boeder"><iframe id="ifr-boeder" src="/sider/boeder"></iframe></div>
+  <div class="side" id="side-anholdelser"><iframe id="ifr-anholdelser" src="/sider/anholdelser"></iframe></div>
+  <div class="side" id="side-rapporter"><iframe id="ifr-rapporter" src="/sider/rapporter"></iframe></div>
+  <div class="side" id="side-retssager"><iframe id="ifr-retssager" src="/sider/retssager"></iframe></div>
+  <div class="side" id="side-profil"><iframe id="ifr-profil" src="/sider/profil"></iframe></div>
+  <div class="side" id="side-admin"><iframe id="ifr-admin" src="/sider/admin"></iframe></div>
+  <div class="side" id="side-identifikation"><iframe id="ifr-identifikation" src="/sider/identifikation"></iframe></div>
+</div>
+
+<div id="toasts"></div>
+<div id="noedopkald-boks"></div>
+
+<script>
+const CAB_LIST = [
+  { v:'patrulje',       l:'På Patrulje',    c:'#22c55e' },
+  { v:'tilgaengelig',   l:'Tilgængelig',     c:'#22c55e' },
+  { v:'optaget',        l:'Optaget',         c:'#eab308' },
+  { v:'eftersaettelse', l:'Eftersættelse',   c:'#3b82f6' },
+  { v:'utilgaengelig',  l:'Utilgængelig',    c:'#ef4444' },
+  { v:'out_of_service', l:'Out of Service',  c:'#6c7a96' },
+  { v:'offline',        l:'Offline',         c:'#374151' },
+];
+
+let token = null, mig = null, cabStatus = 'out_of_service', ws = null;
+
+setInterval(() => {
+  document.getElementById('ur').textContent =
+    new Date().toLocaleTimeString('da-DK', { hour12: false });
+}, 1000);
+
+async function init() {
+  token = localStorage.getItem('mdt_token');
+  if (!token) { window.location.href = '/login'; return; }
+
+  try {
+    const r = await fetch('/auth/mig', { headers: { Authorization: `Bearer ${token}` } });
+    if (!r.ok) { logUd(); return; }
+    mig = await r.json();
+  } catch {
+    toast('Fejl', 'Kan ikke nå backend', 'fejl'); return;
+  }
+
+  const av = document.getElementById('avatar');
+  if (mig.discord_avatar) {
+    av.innerHTML = `<img src="https://cdn.discordapp.com/avatars/${mig.discord_id}/${mig.discord_avatar}.png?size=64">`;
+  } else {
+    av.textContent = (mig.fornavn || mig.discord_navn || '?')[0].toUpperCase();
+  }
+
+  document.getElementById('pd-navn').textContent = mig.fornavn ? `${mig.fornavn} ${mig.efternavn}` : mig.discord_navn;
+  document.getElementById('pd-sub').textContent  = mig.rang ? `${mig.rang} · ${mig.badge_nummer || '—'}` : 'Profil ikke udfyldt';
+
+  if (mig.er_admin) document.getElementById('admin-item').style.display = '';
+
+  cabStatus = 'out_of_service';
+  opdaterCabUI('out_of_service');
+  byggCabDD();
+  fetch('/cab/status', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ status: 'out_of_service' })
+  }).catch(() => {});
+
+  forbindWS();
+  sendTilAlleIframes({ type: 'init', token, backend: '', bruger: mig });
+
+  window._mdtToken = token;
+  window._mdtBruger = mig;
+}
+
+function sendTilAlleIframes(data) {
+  document.querySelectorAll('iframe').forEach(ifr => {
+    try { ifr.contentWindow.postMessage(data, '*'); } catch {}
+  });
+}
+
+window.addEventListener('message', e => {
+  const { type, data } = e.data || {};
+  if (type === 'klar') e.source.postMessage({ type: 'init', token, backend: '', bruger: mig }, '*');
+  if (type === 'toast') toast(data.titel, data.tekst, data.klasse);
+  if (type === 'cab_opdatering') sendTilAlleIframes({ type: 'cab_opdatering', data });
+  if (type === 'naviger_til') visSide(data?.side || e.data.side);
+});
+
+function visSide(navn) {
+  document.querySelectorAll('.side').forEach(s => s.classList.remove('aktiv'));
+  document.querySelectorAll('.nav-knap').forEach(k => k.classList.remove('aktiv'));
+  document.getElementById(`side-${navn}`)?.classList.add('aktiv');
+  document.querySelector(`[data-side="${navn}"]`)?.classList.add('aktiv');
+  const ifr = document.getElementById(`ifr-${navn}`);
+  if (ifr && token) { try { ifr.contentWindow.postMessage({ type: 'init', token, backend: '', bruger: mig }, '*'); } catch {} }
+  lukDD();
+}
+
+function byggCabDD() {
+  document.getElementById('cab-dd').innerHTML = CAB_LIST.map(s => `
+    <div class="cab-valg ${s.v === cabStatus ? 'aktiv' : ''}" onclick="saetStatus('${s.v}')">
+      <div class="cab-valg-dot" style="background:${s.c}"></div>
+      <div class="cab-valg-label" style="color:${s.c}">${s.l}</div>
+    </div>`).join('');
+}
+
+function opdaterCabUI(status) {
+  const s = CAB_LIST.find(x => x.v === status) || CAB_LIST.at(-1);
+  document.getElementById('cab-dot').style.background = s.c;
+  document.getElementById('cab-label').textContent    = s.l;
+  document.getElementById('cab-label').style.color    = s.c;
+}
+
+async function saetStatus(status) {
+  lukDD();
+  const r = await fetch('/cab/status', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ status })
+  }).catch(() => null);
+  if (r?.ok) {
+    cabStatus = status;
+    opdaterCabUI(status);
+    byggCabDD();
+    sendTilAlleIframes({ type: 'cab_opdatering', data: { status } });
+    toast('Status', CAB_LIST.find(s => s.v === status)?.l, 'info');
+  }
+}
+
+function forbindWS() {
+  try {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws?token=${token}`);
+    ws.onmessage = e => {
+      try {
+        const { type, data } = JSON.parse(e.data);
+        if (type === 'nyt_noedopkald') visNoedopkald(data);
+        if (type === 'cab_opdatering') sendTilAlleIframes({ type: 'cab_opdatering', data });
+      } catch {}
+    };
+    ws.onclose = () => setTimeout(forbindWS, 5000);
+  } catch {}
+}
+
+function visNoedopkald(data) {
+  const boks = document.getElementById('noedopkald-boks');
+  const el = document.createElement('div');
+  el.className = 'noed-popup';
+  const idx = Date.now();
+  window._noedOpkald = window._noedOpkald || {};
+  window._noedOpkald[idx] = data;
+  el.innerHTML = `
+    <div class="noed-top">🚨 NYT NØDOPKALD #${data.opkaldsnr || ''}</div>
+    <div class="noed-tekst">${data.beskrivelse || 'Ingen beskrivelse'}</div>
+    <div class="noed-lok">📍 ${data.lokation || '—'}</div>
+    <div class="noed-knapper">
+      <button class="btn btn-sm btn-primary" onclick="this.closest('.noed-popup').remove();visSide('kort')">Tilgå</button>
+      <button class="btn btn-sm btn-outline" onclick="this.closest('.noed-popup').remove()">Luk</button>
+    </div>`;
+  boks.appendChild(el);
+  setTimeout(() => el.remove(), 30000);
+}
+
+function toast(titel, tekst, klasse = 'info') {
+  const ikoner = { info: 'ℹ️', succes: '✅', fejl: '❌' };
+  const el = document.createElement('div');
+  el.className = `toast ${klasse}`;
+  el.innerHTML = `<div class="toast-icon">${ikoner[klasse]||'ℹ️'}</div><div class="toast-body"><div class="toast-title">${titel}</div>${tekst ? `<div>${tekst}</div>` : ''}</div>`;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+window.visToast = toast;
+
+function toggleDD(id) {
+  const el = document.getElementById(id);
+  const vis = el.classList.contains('vis');
+  document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('vis'));
+  if (!vis) el.classList.add('vis');
+}
+function lukDD() { document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('vis')); }
+document.addEventListener('click', e => { if (!e.target.closest('.dropdown, .cab-knap, .avatar')) lukDD(); });
+
+function logUd() {
+  fetch('/cab/status', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ status: 'offline' })
+  }).catch(() => {}).finally(() => {
+    localStorage.removeItem('mdt_token');
+    window.location.href = '/login';
+  });
+}
+
+init();
+</script>
+</body>
+</html>

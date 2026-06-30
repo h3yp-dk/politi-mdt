@@ -1,0 +1,734 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+body { display: grid; grid-template-columns: 300px 1fr; height: 100vh; overflow: hidden; background: var(--bg); }
+
+.liste-side { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+.liste-header { padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.liste-header h2 { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); flex: 1; }
+.liste-scroll { overflow-y: auto; flex: 1; }
+
+.anhold-item { padding: 12px 14px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.1s; display: flex; gap: 10px; align-items: flex-start; }
+.anhold-item:hover { background: var(--panel2); }
+.anhold-item.valgt { background: rgba(239,68,68,0.06); border-left: 3px solid var(--red,#ef4444); }
+.anhold-navn { font-size: 13px; font-weight: 600; color: var(--white); }
+.anhold-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.anhold-snippet { font-size: 11px; color: var(--muted2); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+
+.hoved-side { display: flex; flex-direction: column; overflow: hidden; }
+.hoved-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel); flex-shrink: 0; display: flex; align-items: center; gap: 10px; }
+.hoved-header h2 { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); flex: 1; }
+.hoved-scroll { overflow-y: auto; flex: 1; padding: 20px; }
+.tom-valg { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; color: var(--muted); }
+.tom-valg-ikon { font-size: 52px; opacity: 0.2; }
+
+.form-overlay { position: fixed; inset: 0; background: var(--bg); z-index: 90; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.form-overlay.vis { opacity: 1; pointer-events: all; }
+.form-topbar { height: 50px; border-bottom: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; padding: 0 20px; gap: 14px; flex-shrink: 0; }
+.form-scroll { overflow-y: auto; flex: 1; padding: 20px; max-width: 860px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+
+.fs { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+.fs-head { padding: 9px 16px; background: var(--politi-navy,#0a1628); border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.fs-body { padding: 14px 16px; }
+.fg2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fg3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.fg4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; }
+.ff label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 5px; }
+.ff input, .ff select, .ff textarea { width: 100%; box-sizing: border-box; background: var(--panel2); border: 1px solid var(--border2,#2d3a50); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 13px; padding: 7px 10px; border-radius: 5px; outline: none; transition: border-color 0.15s; }
+.ff input:focus, .ff select:focus, .ff textarea:focus { border-color: var(--red,#ef4444); }
+.ff textarea { resize: vertical; min-height: 80px; }
+.ff input.ro { opacity: 0.55; }
+.check-r { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.check-r input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--red,#ef4444); cursor: pointer; flex-shrink: 0; }
+.check-r label { font-size: 11px; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; cursor: pointer; margin-bottom: 0 !important; }
+
+/* Charges split */
+.split-layout { display: grid; grid-template-columns: 1fr 1fr; }
+.split-venstre { border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.split-soeg { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.split-soeg input { width: 100%; box-sizing: border-box; background: var(--panel2); border: 1px solid var(--border2); color: var(--text); font-family: 'Rajdhani', sans-serif; font-size: 12px; padding: 6px 10px; border-radius: 4px; outline: none; }
+.split-soeg input:focus { border-color: var(--red,#ef4444); }
+.split-liste { overflow-y: auto; max-height: 360px; }
+.gruppe-navn { padding: 6px 12px; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); background: rgba(0,0,0,0.25); border-bottom: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+.gruppe-navn:hover { background: rgba(0,0,0,0.35); }
+.gruppe-navn .pil { font-size: 9px; transition: transform 0.15s; color: var(--muted2); }
+.gruppe-navn.aaben .pil { transform: rotate(90deg); }
+.gruppe-items { display: none; }
+.gruppe-items.vis { display: block; }
+.charge-punkt { padding: 7px 12px 7px 18px; font-size: 12px; color: var(--text); cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.1s; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.charge-punkt:hover { background: rgba(239,68,68,0.07); }
+.charge-para { font-size: 10px; color: var(--muted2); font-family: 'Share Tech Mono', monospace; white-space: nowrap; }
+.charge-straf { font-size: 10px; color: var(--muted2); white-space: nowrap; }
+
+.split-hoejre { display: flex; flex-direction: column; }
+.split-hoejre-header { padding: 10px 14px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+.valgte-liste { padding: 8px 10px; overflow-y: auto; max-height: 360px; display: flex; flex-direction: column; gap: 4px; }
+.ingen-valgt { padding: 16px; text-align: center; font-size: 12px; color: var(--muted); }
+.valgt-charge { display: flex; align-items: flex-start; gap: 8px; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); border-radius: 5px; padding: 7px 10px; }
+.valgt-charge-navn { flex: 1; font-size: 12px; color: var(--white); line-height: 1.3; }
+.valgt-charge-meta { font-size: 10px; color: var(--muted2); margin-top: 2px; font-family: 'Share Tech Mono', monospace; }
+.valgt-fjern { color: var(--muted); cursor: pointer; font-size: 13px; flex-shrink: 0; }
+.valgt-fjern:hover { color: #f87171; }
+
+.form-footer { padding: 10px 20px; border-top: 1px solid var(--border); background: var(--panel); display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Visning */
+.v-sek { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.v-head { padding: 9px 16px; background: var(--politi-navy,#0a1628); border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.v-body { padding: 14px 16px; }
+.v-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+.v-felt label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 3px; }
+.v-felt .val { font-size: 13px; color: var(--white); font-weight: 500; }
+.rtag { display: inline-flex; align-items: center; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 4px; padding: 4px 10px; font-size: 11px; color: #fca5a5; margin: 3px; }
+
+  .afdeling-grid { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; background: var(--panel2); border: 1px solid var(--border2); border-radius: 5px; padding: 6px; }
+  .afdeling-valg { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 4px; cursor: pointer; transition: background 0.1s; }
+  .afdeling-valg:hover { background: rgba(255,255,255,0.05); }
+  .afdeling-valg input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+  .afdeling-valg label { font-size: 12px; color: var(--text); cursor: pointer; margin: 0; }
+</style>
+</head>
+<body>
+
+<!-- LISTE -->
+<div class="liste-side">
+  <div class="liste-header">
+    <h2>Anholdelser</h2>
+    <input type="text" style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;padding:5px 8px;border-radius:4px;outline:none;" placeholder="Søg navn..." oninput="filterListe(this.value)">
+    <button class="btn btn-sm" onclick="hentAnholdelser()">↻</button>
+    <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;" id="ny-anhold-knap">+ Ny</button>
+  </div>
+  <div class="liste-scroll" id="liste">
+    <div style="padding:20px;text-align:center;color:var(--muted)">Indlæser...</div>
+  </div>
+</div>
+
+<!-- HOVED -->
+<div class="hoved-side">
+  <div class="hoved-header"><h2>Anholdelsesdetaljer</h2></div>
+  <div class="hoved-scroll" id="hoved-indhold">
+    <div class="tom-valg">
+      <div class="tom-valg-ikon">🚔</div>
+      <p>Vælg en anholdelse eller registrer en ny</p>
+      <button class="btn" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;" id="ny-anhold-knap">+ Registrer anholdelse</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULAR -->
+<div class="form-overlay" id="form-overlay">
+  <div class="form-topbar">
+    <button class="btn btn-sm btn-outline" onclick="lukFormular()">← Tilbage</button>
+    <span style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#fca5a5;">Registrer anholdelse</span>
+    <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);" id="form-nr-label"></span>
+  </div>
+
+  <div class="form-scroll">
+
+    <!-- Betjent -->
+    <div class="fs">
+      <div class="fs-head">Anholdende betjent</div>
+      <div class="fs-body">
+        <div class="fg4" style="margin-bottom:10px;">
+          <div class="ff"><label>Navn</label><input type="text" id="f-navn" placeholder="Dit navn..."></div>
+          <div class="ff"><label>Rang</label><input type="text" id="f-rang" placeholder="Rang..."></div>
+          <div class="ff"><label>Tjenestenummer</label><input type="text" id="f-badge" placeholder="G2512"></div>
+          <div class="ff"><label>Vognummer</label><input type="text" id="f-kaldesignal" placeholder="B-1102"></div>
+        </div>
+        <div class="fg2">
+          <div class="ff"><label>Myndighed</label><input type="text" id="f-myndighed" value="Københavns Politi"></div>
+          <div class="ff"><label>Afdeling(er)</label><div class="afdeling-grid" id="afdeling-grid-r">
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-0" value="Reaktionssektionen"><label for="afdr-0">Reaktionssektionen</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-1" value="Beredskabssektionen"><label for="afdr-1">Beredskabssektionen</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-2" value="Kriminalteknisk Støttesektion"><label for="afdr-2">Kriminalteknisk Støttesektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-3" value="Operativ Færdselssektion"><label for="afdr-3">Operativ Færdselssektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-4" value="Operativ Special Afdeling"><label for="afdr-4">Operativ Special Afdeling</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-5" value="Hundeføresektion"><label for="afdr-5">Hundeføresektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-6" value="Indsatsledersektion"><label for="afdr-6">Indsatsledersektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-7" value="Indsatslederassistentsektion"><label for="afdr-7">Indsatslederassistentsektion</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-8" value="Rigspolitiet"><label for="afdr-8">Rigspolitiet</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-9" value="PUUC: Underviser"><label for="afdr-9">PUUC: Underviser</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-10" value="PUUC: Vejleder"><label for="afdr-10">PUUC: Vejleder</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-11" value="Aktionsstyrken (PET)"><label for="afdr-11">Aktionsstyrken (PET)</label></div>
+  <div class="afdeling-valg"><input type="checkbox" id="afdr-12" value="Efterforsker (PET)"><label for="afdr-12">Efterforsker (PET)</label></div>
+</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tidspunkt og sted -->
+    <div class="fs">
+      <div class="fs-head">Tidspunkt og lokation</div>
+      <div class="fs-body">
+        <div class="fg3" style="margin-bottom:10px;">
+          <div class="ff"><label>Dato</label><input type="text" id="f-dato" class="ro" readonly></div>
+          <div class="ff"><label>Tidspunkt</label><input type="text" id="f-tid" class="ro" readonly></div>
+          <div class="ff"><label>Rapport nr.</label><input type="text" id="f-nr" class="ro" readonly></div>
+        </div>
+        <div class="fg2">
+          <div class="ff"><label>Gade / Område</label><input type="text" id="f-lokation" placeholder="Eks. Freedom Avenue, Vesterbro..."></div>
+          <div class="ff"><label>Postnummer</label><input type="text" id="f-postnummer" placeholder="Eks. 2100"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Anholdt -->
+    <div class="fs">
+      <div class="fs-head">
+        Anholdt person
+        <button class="btn btn-sm btn-outline" style="margin-left:auto;font-size:10px;" onclick="hentFraOpslag()">Hent fra opslag</button>
+      </div>
+      <div class="fs-body">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input type="text" id="f-cpr-soeg" placeholder="Indtast CPR-nummer (DDMMÅÅÅÅ-XXXX)..." style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;">
+          <button class="btn btn-outline" onclick="hentFraOpslag()">Hent fra CPR</button>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Navn (Roblox / Rp navn)</label><input type="text" id="f-anholdt-navn" placeholder="Roblox Username / Rp Navn"></div>
+          <div class="ff"><label>Fødselsdato</label><input type="text" id="f-anholdt-foedsel" placeholder="DD/MM/ÅÅÅÅ"></div>
+        </div>
+        <div class="fg2" style="margin-bottom:10px;">
+          <div class="ff"><label>Køn</label>
+            <select id="f-anholdt-kon">
+              <option value="">Vælg...</option>
+              <option value="Mand">Mand</option>
+              <option value="Kvinde">Kvinde</option>
+              <option value="Ukendt">Ukendt</option>
+            </select>
+          </div>
+          <div class="ff"><label>Adresse</label><input type="text" id="f-anholdt-adresse" placeholder="Eks. Franklin Court 12"></div>
+        </div>
+        <div class="ff"><label>Signalement</label><textarea id="f-anholdt-beskrivelse" style="min-height:60px;" placeholder="Påklædning, udseende, signalement..."></textarea></div>
+      </div>
+    </div>
+
+    <!-- Medicinske detaljer -->
+    <div class="fs">
+      <div class="fs-head">Medicinske detaljer (hvis relevant)</div>
+      <div class="fs-body">
+        <div style="display:flex;gap:24px;margin-bottom:12px;flex-wrap:wrap;">
+          <div class="check-r"><input type="checkbox" id="f-vaaben"><label for="f-vaaben">Våben fundet</label></div>
+          <div class="check-r"><input type="checkbox" id="f-stoffer"><label for="f-stoffer">Stoffer fundet</label></div>
+          <div class="check-r"><input type="checkbox" id="f-magt"><label for="f-magt">Magtanvendelse benyttet</label></div>
+          <div class="check-r"><input type="checkbox" id="f-ems"><label for="f-ems">EMS tilkaldt</label></div>
+        </div>
+        <div class="fg2">
+          <div class="ff"><label>Fængselsstraff</label><input type="text" id="f-faengsel" placeholder="Eks. 15 minutter"></div>
+          <div class="ff"><label>Bøde ved anholdelse (kr.)</label><input type="number" id="f-boede" placeholder="0" min="0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arrest Details / Tiltalepunkter -->
+    <div class="fs">
+      <div class="fs-head">Arrest Details — Tiltalepunkter (Straffeloven)</div>
+      <div class="split-layout">
+        <div class="split-venstre">
+          <div class="split-soeg"><input type="text" id="charge-soeg" placeholder="Søg paragraf eller navn..." oninput="soegCharges(this.value)"></div>
+          <div class="split-liste" id="charge-liste"></div>
+        </div>
+        <div class="split-hoejre">
+          <div class="split-hoejre-header">Valgte tiltalepunkter</div>
+          <div class="valgte-liste" id="valgte-charges"><div class="ingen-valgt">Ingen tiltalepunkter valgt endnu</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hændelsesforløb -->
+    <div class="fs">
+      <div class="fs-head">Hændelsesforløb *</div>
+      <div class="fs-body">
+        <div class="ff"><label>Beskriv hændelsen der ledte til anholdelsen</label>
+          <textarea id="f-beskrivelse" style="min-height:140px;" placeholder="Beskriv hvad der skete, hvornår det skete, hvem der var involveret, og hvad der ledte til anholdelsen..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transport -->
+    <div class="fs">
+      <div class="fs-head">Transport</div>
+      <div class="fs-body">
+        <div style="display:flex;gap:24px;margin-bottom:10px;">
+          <div class="check-r"><input type="checkbox" id="f-self-transport"><label for="f-self-transport">Selvtransporteret</label></div>
+        </div>
+        <div class="ff"><label>Transporterende betjent</label><input type="text" id="f-transport-betjent" placeholder="Betjentens navn / P-nummer"></div>
+      </div>
+    </div>
+
+    <!-- Noter -->
+    <div class="fs">
+      <div class="fs-head">Noter / Kommentarer</div>
+      <div class="fs-body">
+        <div class="ff"><label>Interne noter</label><textarea id="f-noter" style="min-height:70px;" placeholder="Interne noter, yderligere kommentarer..."></textarea></div>
+      </div>
+    </div>
+
+    <div style="background:rgba(99,179,237,0.08);border:1px solid rgba(99,179,237,0.2);border-radius:6px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:14px;">
+      En retssag oprettes automatisk ved registrering af anholdelse og vises i Retssager-siden.
+    </div>
+
+  </div>
+
+  <div class="form-footer">
+    <button class="btn btn-outline" onclick="lukFormular()">Annuller</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-lg" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;" onclick="registrerAnholdelse()" id="reg-knap">Registrer anholdelse og send til Discord</button>
+  </div>
+</div>
+
+<script>
+// ── STRAFFELOV / CHARGES ──────────────────────────────────────────────────────
+const CHARGES = [
+  { p:'§ 1 Stk. 1',  n:'Forsætligt manddrab',                    s:'25-60 år',        kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 2',  n:'Uagtsomt manddrab',                       s:'10-25 år',        kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 3',  n:'Manddrab med køretøj',                    s:'10-25 år',        kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 4',  n:'Mord af 1. grad',                         s:'25 år - livstid', kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 5',  n:'Mord af 2. grad',                         s:'10-25 år',        kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 6',  n:'Skærpet mord',                            s:'25 år - livstid', kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 7',  n:'Forsøg på mord',                          s:'10-25 år',        kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 8',  n:'Forsøg på mord på politibetjent',         s:'25-60 år',        kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 1 Stk. 9',  n:'Mord på politibetjent',                   s:'25 år - livstid', kat:'Kapitel 1 — Manddrab og mord' },
+  { p:'§ 2 Stk. 1',  n:'Simpelt overfald',                        s:'6-12 mdr',        kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 2',  n:'Simpel vold',                             s:'6-12 mdr',        kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 3',  n:'Skærpet overfald',                        s:'1-5 år',          kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 4',  n:'Overfald med dødligt våben',              s:'1-5 år',          kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 5',  n:'Overfald mod politibetjent',              s:'1-5 år',          kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 6',  n:'Vold mod politibetjent',                  s:'5-10 år',         kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 7',  n:'Vold mod ældre eller handicappede',       s:'5-10 år',         kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 8',  n:'Seksuelt overgreb',                       s:'1-5 år',          kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 2 Stk. 9',  n:'Voldtægt',                                s:'10-20 år',        kat:'Kapitel 2 — Vold og overfald' },
+  { p:'§ 3 Stk. 1',  n:'Indbrud',                                 s:'1-5 år',          kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 2',  n:'Indbrud i bolig',                         s:'5-15 år',         kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 3',  n:'Bankrøveri',                              s:'5-15 år',         kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 4',  n:'Røveri i dagligvarebutik',                s:'1-10 år',         kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 5',  n:'Væbnet røveri',                           s:'5-10 år',         kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 6',  n:'Bilkapring',                              s:'1-5 år',          kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 7',  n:'Groft biltyveri',                         s:'5-10 år',         kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 3 Stk. 8',  n:'Groft tyveri',                            s:'1-5 år',          kat:'Kapitel 3 — Røveri og tyveri' },
+  { p:'§ 4 Stk. 1',  n:'Brandstiftelse',                          s:'5-10 år',         kat:'Kapitel 4 — Brandstiftelse' },
+  { p:'§ 4 Stk. 2',  n:'Brandstiftelse i første grad',            s:'5-10 år',         kat:'Kapitel 4 — Brandstiftelse' },
+  { p:'§ 4 Stk. 3',  n:'Forsøg på mordbrand',                     s:'1-5 år',          kat:'Kapitel 4 — Brandstiftelse' },
+  { p:'§ 5 Stk. 1',  n:'Simpel kidnapning',                       s:'5-10 år',         kat:'Kapitel 5 — Frihedsberøvelse' },
+  { p:'§ 5 Stk. 2',  n:'Skærpet kidnapning',                      s:'5-15 år',         kat:'Kapitel 5 — Frihedsberøvelse' },
+  { p:'§ 5 Stk. 3',  n:'Forsøg på kidnapning',                    s:'1-5 år',          kat:'Kapitel 5 — Frihedsberøvelse' },
+  { p:'§ 5 Stk. 4',  n:'Ulovlig frihedsberøvelse',                s:'5-10 år',         kat:'Kapitel 5 — Frihedsberøvelse' },
+  { p:'§ 6 Stk. 1',  n:'Grov vold med ødelæggelse',               s:'1-5 år',          kat:'Kapitel 6 — Oprør og uorden' },
+  { p:'§ 6 Stk. 2',  n:'Deltagelse i bandekriminalitet',          s:'1-5 år',          kat:'Kapitel 6 — Oprør og uorden' },
+  { p:'§ 6 Stk. 3',  n:'Opfordring til optøjer',                  s:'1-5 år',          kat:'Kapitel 6 — Oprør og uorden' },
+  { p:'§ 6 Stk. 4',  n:'Deltagelse i optøjer',                    s:'1-5 år',          kat:'Kapitel 6 — Oprør og uorden' },
+  { p:'§ 6 Stk. 5',  n:'Modstand mod anholdelse med vold',        s:'1-5 år',          kat:'Kapitel 6 — Oprør og uorden' },
+  { p:'§ 7 Stk. 1',  n:'Viften med skydevåben',                   s:'6-12 mdr',        kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 7 Stk. 2',  n:'Ulovlig brug af skydevåben',              s:'1-5 år',          kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 7 Stk. 3',  n:'Besiddelse af dødbringende våben',        s:'1-5 år',          kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 7 Stk. 4',  n:'Ulovlig besiddelse af skydevåben',        s:'6-12 mdr',        kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 7 Stk. 5',  n:'Ulovlig besiddelse — forbryder',          s:'5-10 år',         kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 7 Stk. 6',  n:'Besiddelse af uregistreret skydevåben',   s:'5-10 år',         kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 7 Stk. 7',  n:'Våbenhandel',                             s:'5-15 år',         kat:'Kapitel 7 — Våbenforbrydelser' },
+  { p:'§ 8 Stk. 1',  n:'Besiddelse af marihuana (under 10g)',     s:'1-6 mdr',         kat:'Kapitel 8 — Narkotika' },
+  { p:'§ 8 Stk. 2',  n:'Besiddelse af kontrollerede stoffer',     s:'1-5 år',          kat:'Kapitel 8 — Narkotika' },
+  { p:'§ 8 Stk. 3',  n:'Besiddelse med henblik på distribution',  s:'1-10 år',         kat:'Kapitel 8 — Narkotika' },
+  { p:'§ 8 Stk. 4',  n:'Narkotikahandel — Skema I',               s:'5-20 år',         kat:'Kapitel 8 — Narkotika' },
+  { p:'§ 8 Stk. 5',  n:'Narkotikahandel — Skema II',              s:'5-20 år',         kat:'Kapitel 8 — Narkotika' },
+  { p:'§ 9 Stk. 1',  n:'Besiddelse af stjålet køretøj',           s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 9 Stk. 2',  n:'Besiddelse af stjålet ejendom',           s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 9 Stk. 3',  n:'Falsk kørekort eller ID',                 s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 9 Stk. 4',  n:'Besiddelse af stjålet nummerplade',       s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 9 Stk. 5',  n:'Ødelæggelse af offentlig ejendom',        s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 9 Stk. 6',  n:'Hærværk',                                 s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 9 Stk. 7',  n:'Butikstyveri',                            s:'6-12 mdr',        kat:'Kapitel 9 — Ejendomsforbrydelser' },
+  { p:'§ 10 Stk. 1', n:'Bedrageri',                               s:'1-5 år',          kat:'Kapitel 10 — Øvrige forbrydelser' },
+  { p:'§ 10 Stk. 2', n:'Bestikkelse',                             s:'6-12 mdr',        kat:'Kapitel 10 — Øvrige forbrydelser' },
+  { p:'§ 10 Stk. 3', n:'Hvidvaskning af penge',                   s:'1-5 år',          kat:'Kapitel 10 — Øvrige forbrydelser' },
+  { p:'§ 10 Stk. 4', n:'Identitetstyveri',                        s:'6-12 mdr',        kat:'Kapitel 10 — Øvrige forbrydelser' },
+  { p:'§ 10 Stk. 5', n:'Mened',                                   s:'1-5 år',          kat:'Kapitel 10 — Øvrige forbrydelser' },
+  { p:'§ 11 Stk. 1', n:'Kørsel mod færdselsretningen',            s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 2', n:'Aggressiv kørsel og fareudsættelse',      s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 3', n:'Gaderæs',                                 s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 4', n:'Flugt fra politiet',                      s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 5', n:'Flugt fra politiet med personskade',      s:'5-15 år',         kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 6', n:'Kørsel under påvirkning af alkohol',      s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 7', n:'Kørsel under påvirkning — 2. gang',       s:'1-5 år',          kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 8', n:'Kørsel under påvirkning af stoffer',      s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 9', n:'Nægtelse af udåndingsprøve',              s:'6-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 10',n:'Kørsel med suspenderet kørekort',         s:'1-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 11 Stk. 11',n:'Kørsel uden kørekort',                    s:'1-12 mdr',        kat:'Kapitel 11 — Trafikforseelser' },
+  { p:'§ 12 Stk. 1', n:'Efterlysning — delstat/amt',              s:'1-20 år',         kat:'Kapitel 12 — Efterlysninger' },
+  { p:'§ 12 Stk. 2', n:'Efterlysning — mord af 1. grad',          s:'25 år - livstid', kat:'Kapitel 12 — Efterlysninger' },
+  { p:'§ 12 Stk. 3', n:'Efterlysning — bankrøveri',               s:'5-15 år',         kat:'Kapitel 12 — Efterlysninger' },
+  { p:'§ 12 Stk. 4', n:'Efterlysning — narkotikahandel',          s:'5-20 år',         kat:'Kapitel 12 — Efterlysninger' },
+  { p:'§ 12 Stk. 5', n:'Efterlysning — flugt fra politiet',       s:'1-5 år',          kat:'Kapitel 12 — Efterlysninger' },
+  { p:'§ 12 Stk. 6', n:'Efterlysning — ulovlig våbenbesiddelse',  s:'1-10 år',         kat:'Kapitel 12 — Efterlysninger' },
+  { p:'§ 12 Stk. 7', n:'Overtrædelse af betinget dom',            s:'1-5 år',          kat:'Kapitel 12 — Efterlysninger' },
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let token='', backendUrl='', mig=null;
+let alleAnholdelser=[], valgteCharges=[];
+let editId=null;
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+async function startSide() {
+  document.querySelectorAll('#ny-anhold-knap').forEach(el => el.onclick = () => aabneFormular());
+  const nu = new Date();
+  document.getElementById('f-dato').value = nu.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
+  document.getElementById('f-tid').value  = nu.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+  if (mig) {
+    document.getElementById('f-navn').value        = mig.roblox_brugernavn || mig.discord_navn || '';
+    document.getElementById('f-rang').value        = mig.rang || '';
+    document.getElementById('f-badge').value       = mig.badge_nummer || '';
+    document.getElementById('f-kaldesignal').value = mig.kaldesignal || '';
+  }
+  byggChargeListe();
+  await hentAnholdelser();
+}
+
+// ── LISTE ─────────────────────────────────────────────────────────────────────
+async function hentAnholdelser() {
+  try {
+    const r = await fetch(`${backendUrl}/data/anholdelser`, { headers: { Authorization: `Bearer ${token}` } });
+    alleAnholdelser = await r.json();
+    visListe(alleAnholdelser);
+  } catch {
+    document.getElementById('liste').innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted)">Kunne ikke hente anholdelser</div>';
+  }
+}
+
+function filterListe(q) {
+  visListe(alleAnholdelser.filter(a => a.anholdt_navn.toLowerCase().includes(q.toLowerCase())));
+}
+
+function visListe(data) {
+  const el = document.getElementById('liste');
+  if (!data.length) {
+    el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted)">Ingen anholdelser</div>';
+    return;
+  }
+  el.innerHTML = data.map(a => {
+    const punkter = JSON.parse(a.anklage_punkter || '[]');
+    return `<div class="anhold-item" onclick="visAnholdelse(${a.id}, this)">
+      <div style="width:36px;height:36px;border-radius:50%;background:rgba(239,68,68,0.2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fca5a5;flex-shrink:0;">${(a.anholdt_navn[0]||'?').toUpperCase()}</div>
+      <div style="flex:1;min-width:0">
+        <div class="anhold-navn">${a.anholdt_navn}</div>
+        <div class="anhold-meta">${a.rapport_nr} · ${new Date(a.oprettet).toLocaleDateString('da-DK')}</div>
+        <div class="anhold-snippet">${punkter.slice(0,2).join(' · ')}</div>
+      </div>
+      <span class="badge ${a.status==='aktiv'?'badge-rød':'badge-grå'}">${a.status||'aktiv'}</span>
+    </div>`;
+  }).join('');
+}
+
+function visAnholdelse(id, el) {
+  document.querySelectorAll('.anhold-item').forEach(i => i.classList.remove('valgt'));
+  if (el) el.classList.add('valgt');
+  const a = alleAnholdelser.find(x => x.id === id);
+  if (!a) return;
+  const punkter = JSON.parse(a.anklage_punkter || '[]');
+  document.getElementById('hoved-indhold').innerHTML = `
+    <div class="v-sek">
+      <div class="v-head">Anholdelse — <span class="badge ${a.status==='aktiv'?'badge-rød':'badge-grå'}">${a.status||'aktiv'}</span></div>
+      <div class="v-body">
+        <div class="v-grid" style="margin-bottom:10px;">
+          <div class="v-felt"><label>Rapport nr.</label><div class="val">${a.rapport_nr}</div></div>
+          <div class="v-felt"><label>Anholdt</label><div class="val">${a.anholdt_navn}</div></div>
+          <div class="v-felt"><label>Dato</label><div class="val">${new Date(a.oprettet).toLocaleDateString('da-DK')}</div></div>
+          <div class="v-felt"><label>Betjent</label><div class="val">${a.betjent_navn||'—'}</div></div>
+          <div class="v-felt"><label>Lokation</label><div class="val">${a.lokation||'—'}</div></div>
+          <div class="v-felt"><label>Fængselsstraff</label><div class="val">${a.faengsel_tid||'—'}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="v-sek">
+      <div class="v-head">Tiltalepunkter (${punkter.length})</div>
+      <div class="v-body">${punkter.map(p=>`<span class="rtag">${p}</span>`).join('')}</div>
+    </div>
+    <div class="v-sek">
+      <div class="v-head">Hændelsesforløb</div>
+      <div class="v-body"><div style="font-size:13px;color:var(--text);line-height:1.6;white-space:pre-wrap;">${a.beskrivelse||'—'}</div></div>
+    </div>
+    <div style="margin-top:12px;">
+      <button class="btn btn-lg" style="width:100%;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);color:#fca5a5;" onclick="aabneRediger(${a.id})">Rediger anholdelse</button>
+    </div>
+  `;
+}
+
+// ── FORMULAR ──────────────────────────────────────────────────────────────────
+async function aabneRediger(id) {
+  const a = alleAnholdelser.find(x => x.id === id);
+  if (!a) return;
+
+  editId = id;
+  valgteCharges = [];
+
+  // Udfyld formular med eksisterende data
+  const punkter = JSON.parse(a.anklage_punkter || '[]');
+  // Parse paragraf tilbage til {p, n, s} format
+  valgteCharges = punkter.map(p => {
+    const parts = p.split(' — ');
+    return { p: parts[0] || p, n: parts.slice(1).join(' — ') || p, s: '' };
+  });
+
+  const nr = a.rapport_nr;
+  document.getElementById('f-nr').value = nr;
+  document.getElementById('form-nr-label').textContent = nr;
+
+  // Betjent (fra nuværende bruger)
+  document.getElementById('f-navn').value        = mig?.roblox_brugernavn || mig?.discord_navn || '';
+  document.getElementById('f-rang').value        = mig?.rang || '';
+  document.getElementById('f-badge').value       = mig?.badge_nummer || '';
+  document.getElementById('f-kaldesignal').value = mig?.kaldesignal || '';
+
+  // Dato og tid
+  const oprettet = a.oprettet ? new Date(a.oprettet) : new Date();
+  document.getElementById('f-dato').value = oprettet.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
+  document.getElementById('f-tid').value  = oprettet.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
+
+  // Anholdt data
+  document.getElementById('f-anholdt-navn').value        = a.anholdt_navn || '';
+  document.getElementById('f-lokation').value            = a.lokation || '';
+  document.getElementById('f-postnummer').value          = '';
+  document.getElementById('f-faengsel').value            = a.faengsel_tid || '';
+  document.getElementById('f-boede').value               = a.boede_beloeb || '0';
+  document.getElementById('f-vaaben').checked            = !!a.vaaben_fundet;
+  document.getElementById('f-stoffer').checked           = !!a.stoffer_fundet;
+  document.getElementById('f-beskrivelse').value         = a.beskrivelse || '';
+  document.getElementById('f-anholdt-foedsel').value     = '';
+  document.getElementById('f-anholdt-adresse').value     = '';
+  document.getElementById('f-anholdt-beskrivelse').value = '';
+  document.getElementById('f-anholdt-kon').value         = '';
+  document.getElementById('f-magt').checked              = false;
+  document.getElementById('f-ems').checked               = false;
+  document.getElementById('f-self-transport').checked    = false;
+  document.getElementById('f-transport-betjent').value   = '';
+  document.getElementById('f-noter').value               = '';
+
+  opdaterValgteCharges();
+  byggChargeListe();
+  document.getElementById('charge-soeg').value = '';
+
+  // Skift knap tekst
+  const knap = document.getElementById('reg-knap');
+  knap.textContent = 'Opdater anholdelse og send til Discord';
+
+  document.getElementById('form-overlay').classList.add('vis');
+}
+
+function aabneFormular() {
+  editId = null;
+  valgteCharges = [];
+  const knap = document.getElementById('reg-knap');
+  if (knap) knap.textContent = 'Registrer anholdelse og send til Discord';
+  const nr = 'A-' + Date.now().toString().slice(-6);
+  document.getElementById('f-nr').value = nr;
+  document.getElementById('form-nr-label').textContent = nr;
+  ['f-anholdt-navn','f-anholdt-foedsel','f-anholdt-adresse','f-anholdt-beskrivelse',
+   'f-lokation','f-postnummer','f-faengsel','f-transport-betjent','f-noter','f-afdeling'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.value = '';
+  });
+  document.getElementById('f-anholdt-kon').value = '';
+  document.getElementById('f-boede').value = '0';
+  ['f-vaaben','f-stoffer','f-magt','f-ems','f-self-transport'].forEach(id => {
+    const e = document.getElementById(id); if (e) e.checked = false;
+  });
+  opdaterValgteCharges();
+  byggChargeListe();
+  document.getElementById('charge-soeg').value = '';
+  document.getElementById('form-overlay').classList.add('vis');
+}
+function lukFormular() { document.getElementById('form-overlay').classList.remove('vis'); }
+
+// ── CHARGES ───────────────────────────────────────────────────────────────────
+function byggChargeListe(filter='') {
+  const container = document.getElementById('charge-liste');
+  const fl = filter.toLowerCase();
+  const kategorier = [...new Set(CHARGES.map(c => c.kat))];
+  let html = '';
+  kategorier.forEach((kat, ki) => {
+    const match = CHARGES.filter(c => c.kat === kat && (!fl || c.n.toLowerCase().includes(fl) || c.p.toLowerCase().includes(fl)));
+    if (!match.length) return;
+    html += `<div class="gruppe-navn${fl?' aaben':''}" onclick="toggleGruppe(this,'chg-${ki}')"><span class="pil">▶</span>${kat}</div>
+    <div class="gruppe-items${fl?' vis':''}" id="chg-${ki}">${match.map(c => `
+      <div class="charge-punkt" onclick="tilfoejCharge('${escQ(c.p)}','${escQ(c.n)}','${c.s}')">
+        <span style="flex:1">${c.n}</span>
+        <span style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <span class="charge-para">${c.p}</span>
+          <span class="charge-straf">${c.s}</span>
+        </span>
+      </div>`).join('')}</div>`;
+  });
+  container.innerHTML = html || '<div style="padding:12px;text-align:center;font-size:12px;color:var(--muted)">Ingen resultater</div>';
+}
+
+function soegCharges(q) { byggChargeListe(q); }
+function toggleGruppe(el, id) { el.classList.toggle('aaben'); const items = document.getElementById(id); if(items) items.classList.toggle('vis'); }
+
+function tilfoejCharge(para, navn, straf) {
+  if (valgteCharges.find(c => c.p === para)) return;
+  valgteCharges.push({ p: para, n: navn, s: straf });
+  opdaterValgteCharges();
+}
+function escQ(s) { return (s||'').split("'").join("\\'"); }
+function fjernCharge(para) {
+  valgteCharges = valgteCharges.filter(c => c.p !== para);
+  opdaterValgteCharges();
+}
+function opdaterValgteCharges() {
+  const el = document.getElementById('valgte-charges');
+  if (!valgteCharges.length) {
+    el.innerHTML = '<div class="ingen-valgt">Ingen tiltalepunkter valgt endnu</div>';
+    return;
+  }
+  el.innerHTML = valgteCharges.map(c => `
+    <div class="valgt-charge">
+      <div style="flex:1">
+        <div class="valgt-charge-navn">${c.n}</div>
+        <div class="valgt-charge-meta">${c.p}  ·  ${c.s}</div>
+      </div>
+      <span class="valgt-fjern" onclick="fjernCharge('${escQ(c.p)}')">✕</span>
+    </div>`).join('');
+}
+
+// ── REGISTRER ANHOLDELSE ──────────────────────────────────────────────────────
+async function registrerAnholdelse() {
+  const anholdt_navn = document.getElementById('f-anholdt-navn').value.trim();
+  const beskrivelse  = document.getElementById('f-beskrivelse').value.trim();
+  if (!anholdt_navn) { toast('Mangler info','Udfyld den anholdtes navn','fejl'); return; }
+  if (!valgteCharges.length) { toast('Mangler tiltalepunkter','Vælg mindst ét tiltalepunkt','fejl'); return; }
+  if (!beskrivelse) { toast('Mangler beskrivelse','Udfyld hændelsesforløbet','fejl'); return; }
+
+  const knap = document.getElementById('reg-knap');
+  knap.disabled = true; knap.textContent = 'Registrerer...';
+
+  const data = {
+    anholdt_navn,
+    beskrivelse,
+    anklage_punkter: valgteCharges.map(c => `${c.p} — ${c.n}`),
+    lokation:        document.getElementById('f-lokation').value.trim() || null,
+    vaaben_fundet:   document.getElementById('f-vaaben').checked,
+    stoffer_fundet:  document.getElementById('f-stoffer').checked,
+    faengsel_tid:    document.getElementById('f-faengsel').value.trim() || null,
+    boede_beloeb:    parseInt(document.getElementById('f-boede').value) || 0,
+    // ekstra felter
+    betjent_data: {
+      navn:      document.getElementById('f-navn').value.trim(),
+      rang:      document.getElementById('f-rang').value.trim(),
+      badge:     document.getElementById('f-badge').value.trim(),
+      signal:    document.getElementById('f-kaldesignal').value.trim(),
+      afdeling:  hentAfdelinger(),
+      myndighed: document.getElementById('f-myndighed').value.trim(),
+    },
+    anholdt_data: {
+      foedsel:     document.getElementById('f-anholdt-foedsel').value.trim(),
+      kon:         document.getElementById('f-anholdt-kon').value,
+      adresse:     document.getElementById('f-anholdt-adresse').value.trim(),
+      beskrivelse: document.getElementById('f-anholdt-beskrivelse').value.trim(),
+    },
+    magtanvendelse:   document.getElementById('f-magt').checked,
+    ems_tilkaldt:     document.getElementById('f-ems').checked,
+    transport: {
+      selfTransport: document.getElementById('f-self-transport').checked,
+      betjent:       document.getElementById('f-transport-betjent').value.trim(),
+    },
+    noter:       document.getElementById('f-noter').value.trim() || null,
+    postnummer:  document.getElementById('f-postnummer').value.trim(),
+  };
+
+  try {
+    // Hvis redigering: slet den gamle Discord-tråd og databasepost
+    if (editId) {
+      await fetch(`${backendUrl}/data/anholdelser/${editId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+
+    const r = await fetch(`${backendUrl}/data/anholdelser`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(data)
+    });
+    const res = await r.json();
+    if (r.ok) {
+      const besked = editId
+        ? `${anholdt_navn} · ${res.rapport_nr} · Discord opdateret`
+        : `${anholdt_navn} · ${res.rapport_nr} · Retssag oprettet`;
+      toast('Anholdelse ' + (editId ? 'opdateret' : 'registreret'), besked, 'succes');
+      editId = null;
+      lukFormular();
+      hentAnholdelser();
+    } else {
+      toast('Fejl', res.fejl || 'Ukendt fejl', 'fejl');
+    }
+  } catch { toast('Fejl','Serverfejl — prøv igen','fejl'); }
+  knap.disabled = false; knap.textContent = 'Registrer anholdelse og send til Discord';
+}
+
+function hentFraOpslag() {
+  var cprEl = document.getElementById('f-cpr-soeg');
+  var query = cprEl ? cprEl.value.trim() : '';
+  if (!query) { toast('Mangler CPR', 'Indtast et CPR-nummer', 'fejl'); return; }
+  toast('Søger...', 'Leder i identifikationskanalen...', 'info');
+  var q2 = query.replace(/-/g,'').replace(/ /g,'');
+  var erCPR = q2.length === 12 && q2.split('').every(function(c) { return c >= '0' && c <= '9'; });
+  var url = erCPR
+    ? backendUrl + '/data/identifikation/cpr/' + encodeURIComponent(query)
+    : backendUrl + '/data/identifikation/' + encodeURIComponent(query);
+  fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+  .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw e; }); })
+  .then(function(person) {
+    var visNavn = person.navn || person.rp_navn || person.roblox_navn || person.tråd_navn || '';
+    var cpr = person.cpr || person.foedselsdato || query;
+    ['f-anholdt-navn','f-mistankt-navn','f-borger-navn'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = visNavn;
+    });
+    ['f-anholdt-foedsel','f-mistankt-foedsel','f-borger-foedsel'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = cpr;
+    });
+    ['f-anholdt-kon','f-mistankt-kon','f-borger-kon'].forEach(function(id) {
+      var el = document.getElementById(id); if (el && person.kon) el.value = person.kon;
+    });
+    ['f-anholdt-adresse','f-mistankt-adresse','f-borger-adresse'].forEach(function(id) {
+      var el = document.getElementById(id); if (el) el.value = person.adresse || '';
+    });
+    toast('Fundet', visNavn + ' — Data indsat', 'succes');
+  })
+  .catch(function(e) { toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+}
+
+// ── POSTMESSAGE ───────────────────────────────────────────────────────────────
+let _init = false;
+window.addEventListener('message', e => {
+  const m = e.data || {};
+  if (m.type === 'init' && m.token) {
+    token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger || null;
+    if (!_init) { _init = true; startSide(); }
+  }
+  if (m.type === 'person_valgt' && window._ventPersonOpslag) {
+    window._ventPersonOpslag = false;
+    if (m.person) {
+      document.getElementById('f-anholdt-navn').value   = m.person.roblox_navn || '';
+      document.getElementById('f-anholdt-foedsel').value= m.person.foedselsdato || '';
+    }
+  }
+});
+window.parent.postMessage({ type: 'klar' }, '*');
+setTimeout(() => { if (!_init) { try { token = window.parent.token||''; backendUrl = ''; } catch{} if (token) { _init=true; startSide(); } } }, 800);
+
+  function hentAfdelinger() {
+    var vals = [];
+    var grid = document.getElementById('afdeling-grid') || document.getElementById('afdeling-grid-r');
+    if (grid) grid.querySelectorAll('input[type=checkbox]:checked').forEach(function(cb) { vals.push(cb.value); });
+    return vals.join(', ');
+  }
+  function saetAfdelinger(str) {
+    var vals = (str || '').split(',').map(function(s){ return s.trim(); });
+    var grid = document.getElementById('afdeling-grid') || document.getElementById('afdeling-grid-r');
+    if (grid) grid.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = vals.indexOf(cb.value) !== -1; });
+  }
+  function toast(t,x,k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}},'*'); } catch{} }
+</script>
+</body>
+</html>

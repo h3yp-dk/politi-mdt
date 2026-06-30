@@ -1,0 +1,317 @@
+﻿<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+  body { overflow-y: auto; padding: 20px; background: var(--bg); }
+
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 1200px; }
+
+  .sektion { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .sektion-header {
+    padding: 12px 16px; background: var(--politi-navy); border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .sektion-titel { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+
+  /* Bruger kort */
+  .bruger-raekke {
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    transition: background 0.1s;
+  }
+  .bruger-raekke:last-child { border-bottom: none; }
+  .bruger-raekke:hover { background: rgba(255,255,255,0.02); }
+
+  .b-avatar {
+    width: 40px; height: 40px; border-radius: 50%; overflow: hidden;
+    background: var(--accent); display: flex; align-items: center;
+    justify-content: center; font-size: 15px; font-weight: 700;
+    color: white; flex-shrink: 0; border: 2px solid var(--border2);
+  }
+  .b-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .b-info { flex: 1; min-width: 0; }
+  .b-navn { font-size: 14px; font-weight: 600; color: var(--white); }
+  .b-detaljer { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .b-discord { font-size: 11px; color: var(--muted2); margin-top: 1px; }
+
+  .b-knapper { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .godkend-knap {
+    background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3);
+    color: var(--green); padding: 5px 12px; border-radius: 4px;
+    font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 600;
+    letter-spacing: 1px; cursor: pointer; transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .godkend-knap:hover { background: rgba(34,197,94,0.25); }
+
+  .afvis-knap {
+    background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);
+    color: var(--red); padding: 5px 10px; border-radius: 4px;
+    font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s; text-transform: uppercase;
+  }
+  .afvis-knap:hover { background: rgba(239,68,68,0.2); }
+
+  .fjern-knap {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 5px 10px; border-radius: 4px;
+    font-family: 'Rajdhani', sans-serif; font-size: 12px;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .fjern-knap:hover { border-color: var(--red); color: var(--red); }
+
+  /* Rang redigering inline */
+  .rang-select {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; padding: 4px 8px; border-radius: 4px; outline: none;
+    cursor: pointer;
+  }
+  .rang-select:focus { border-color: var(--accent); }
+
+  /* Stats */
+  .stats-raekke { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 7px; padding: 12px 16px; }
+  .stat-tal { font-size: 26px; font-weight: 700; color: var(--white); }
+  .stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
+  .stat.gul .stat-tal { color: var(--yellow); }
+  .stat.grøn .stat-tal { color: var(--green); }
+  .stat.rød .stat-tal  { color: var(--red); }
+
+  .tom { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+  /* Notifikation til admin */
+  .afventer-badge {
+    background: var(--yellow); color: #000; font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px; margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div style="max-width:1200px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div>
+      <div style="font-size:12px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:var(--muted);">Admin Panel</div>
+      <div style="font-size:20px;font-weight:700;color:var(--white);margin-top:4px;">Brugeradministration</div>
+    </div>
+    <button class="btn btn-outline" onclick="hentAlt()">↻ Opdater</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-raekke">
+    <div class="stat"><div class="stat-tal" id="st-total">0</div><div class="stat-lbl">Brugere total</div></div>
+    <div class="stat gul"><div class="stat-tal" id="st-afventer">0</div><div class="stat-lbl">Afventer</div></div>
+    <div class="stat grøn"><div class="stat-tal" id="st-godkendt">0</div><div class="stat-lbl">Godkendte</div></div>
+    <div class="stat rød"><div class="stat-tal" id="st-afvist">0</div><div class="stat-lbl">Afviste</div></div>
+  </div>
+
+  <div class="admin-grid">
+
+    <!-- Afventer godkendelse -->
+    <div class="sektion">
+      <div class="sektion-header">
+        <div class="sektion-titel">
+          ⏳ Afventer godkendelse
+          <span class="afventer-badge" id="afventer-antal" style="display:none">0</span>
+        </div>
+      </div>
+      <div id="afventer-liste">
+        <div class="tom">Ingen afventer godkendelse</div>
+      </div>
+    </div>
+
+    <!-- Godkendte brugere -->
+    <div class="sektion">
+      <div class="sektion-header">
+        <div class="sektion-titel">✅ Godkendte betjente</div>
+        <button class="btn btn-outline btn-sm" onclick="visSide('alle')">Se alle</button>
+      </div>
+      <div id="godkendt-liste">
+        <div class="tom">Ingen godkendte endnu</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Alle brugere (vises når man klikker "Se alle") -->
+  <div id="alle-sektion" style="display:none;margin-top:16px;">
+    <div class="sektion">
+      <div class="sektion-header">
+        <div class="sektion-titel">👥 Alle brugere</div>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('alle-sektion').style.display='none'">Luk</button>
+      </div>
+      <div id="alle-liste"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let token = '', backendUrl = '', mig = null;
+  let allebrugere = [];
+
+  window.addEventListener('message', e => {
+    const m = e.data || {};
+    if (m.type === 'init' && m.token) {
+      token = m.token; backendUrl = m.backend !== undefined ? m.backend : ''; mig = m.bruger;
+      startSide();
+    }
+  });
+  window.parent.postMessage({ type: 'klar' }, '*');
+  setTimeout(() => {
+    if (!token) { try { token = window.parent.token || ''; backendUrl = ''; } catch{} if (token) startSide(); }
+  }, 600);
+
+  function toast(t, x, k) { try { window.parent.postMessage({type:'toast',data:{titel:t,tekst:x,klasse:k}}, '*'); } catch{} }
+
+  async function startSide() {
+    if (!mig?.er_admin) {
+      document.body.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:80vh;gap:12px;color:var(--muted);">
+        <div style="font-size:48px;opacity:0.3">🔒</div>
+        <div style="font-size:16px;">Kun administratorer har adgang til denne side</div>
+      </div>`;
+      return;
+    }
+    hentAlt();
+  }
+
+  async function hentAlt() {
+    try {
+      const r = await fetch(`${backendUrl}/auth/brugere`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!r.ok) { toast('Fejl', 'Ingen adgang', 'fejl'); return; }
+      allebrugere = await r.json();
+      visAlt();
+    } catch(e) {
+      toast('Fejl', e.message, 'fejl');
+    }
+  }
+
+  function visAlt() {
+    const afventer = allebrugere.filter(b => b.godkendt === 0);
+    const godkendte = allebrugere.filter(b => b.godkendt === 1);
+    const afviste   = allebrugere.filter(b => b.godkendt === 2);
+
+    // Stats
+    document.getElementById('st-total').textContent    = allebrugere.length;
+    document.getElementById('st-afventer').textContent = afventer.length;
+    document.getElementById('st-godkendt').textContent = godkendte.length;
+    document.getElementById('st-afvist').textContent   = afviste.length;
+
+    // Afventer badge
+    const badge = document.getElementById('afventer-antal');
+    if (afventer.length > 0) {
+      badge.textContent = afventer.length;
+      badge.style.display = 'inline';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    // Afventer liste
+    const afvListe = document.getElementById('afventer-liste');
+    if (!afventer.length) {
+      afvListe.innerHTML = '<div class="tom">Ingen afventer godkendelse 🎉</div>';
+    } else {
+      afvListe.innerHTML = afventer.map(b => brugerRaekke(b, true)).join('');
+    }
+
+    // Godkendte liste (max 10)
+    const godkListe = document.getElementById('godkendt-liste');
+    if (!godkendte.length) {
+      godkListe.innerHTML = '<div class="tom">Ingen godkendte endnu</div>';
+    } else {
+      godkListe.innerHTML = godkendte.slice(0,10).map(b => brugerRaekke(b, false)).join('');
+    }
+
+    // Alle liste
+    document.getElementById('alle-liste').innerHTML = allebrugere.map(b => brugerRaekke(b, b.godkendt === 0)).join('');
+  }
+
+  function brugerRaekke(b, visGodkendKnapper) {
+    const initialer = (b.fornavn || b.discord_navn || '?')[0].toUpperCase();
+    const avatarHtml = b.discord_avatar
+      ? `<img src="https://cdn.discordapp.com/avatars/${b.discord_id}/${b.discord_avatar}.png?size=64">`
+      : initialer;
+
+    const godkendtStatus = {
+      0: '<span class="badge badge-gul">Afventer</span>',
+      1: '<span class="badge badge-grøn">Godkendt</span>',
+      2: '<span class="badge badge-rød">Afvist</span>'
+    }[b.godkendt] || '';
+
+    const fulnavn = b.fornavn ? `${b.fornavn} ${b.efternavn}` : '— (ikke registreret endnu)';
+
+    return `<div class="bruger-raekke" id="bruger-${b.id}">
+      <div class="b-avatar">${avatarHtml}</div>
+      <div class="b-info">
+        <div class="b-navn">${fulnavn} ${b.er_admin ? '<span class="badge badge-lilla" style="font-size:9px;">ADMIN</span>' : ''}</div>
+        <div class="b-detaljer">
+          ${b.rang || '—'} · ${b.afdeling || '—'}
+          ${b.badge_nummer ? `· Badge: ${b.badge_nummer}` : ''}
+          ${b.kaldesignal ? `· ${b.kaldesignal}` : ''}
+        </div>
+        <div class="b-discord">Discord: ${b.discord_navn} · Oprettet: ${new Date(b.oprettet).toLocaleDateString('da-DK')}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+        ${godkendtStatus}
+        <div class="b-knapper">
+          ${visGodkendKnapper ? `
+            <button class="godkend-knap" onclick="godkend(${b.id}, 1)">✓ Godkend</button>
+            <button class="afvis-knap" onclick="godkend(${b.id}, 2)">✗ Afvis</button>
+          ` : b.godkendt === 1 ? `
+            <button class="fjern-knap" onclick="godkend(${b.id}, 2)">Afvis</button>
+          ` : `
+            <button class="godkend-knap" onclick="godkend(${b.id}, 1)">Genaktiver</button>
+          `}
+        </div>
+        ${b.rang ? `
+        <select class="rang-select" onchange="opdaterRang(${b.id}, this.value)">
+          ${['Betjent','Overbetjent','Kriminalbetjent','Sergeant','Inspektør','Politikommissær']
+            .map(r => `<option ${r === b.rang ? 'selected' : ''}>${r}</option>`).join('')}
+        </select>` : ''}
+      </div>
+    </div>`;
+  }
+
+  async function godkend(id, status) {
+    try {
+      const r = await fetch(`${backendUrl}/auth/brugere/${id}/godkend`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ godkendt: status })
+      });
+      if (r.ok) {
+        const handling = status === 1 ? 'godkendt' : 'afvist';
+        toast('Bruger ' + handling, '', 'succes');
+        hentAlt();
+      } else {
+        toast('Fejl', 'Kunne ikke opdatere', 'fejl');
+      }
+    } catch { toast('Fejl', 'Netværksfejl', 'fejl'); }
+  }
+
+  async function opdaterRang(id, rang) {
+    try {
+      await fetch(`${backendUrl}/auth/brugere/${id}/rang`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ rang })
+      });
+      toast('Rang opdateret', rang, 'info');
+    } catch {}
+  }
+
+  function visSide(type) {
+    document.getElementById('alle-sektion').style.display = 'block';
+    document.getElementById('alle-sektion').scrollIntoView({ behavior: 'smooth' });
+  }
+</script>
+</body>
+</html>
