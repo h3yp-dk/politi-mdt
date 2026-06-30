@@ -426,7 +426,8 @@ async function soegIdentifikationCPR(cpr) {
             const cprFelt = embed.fields?.find(f =>
               f.name.toLowerCase().includes('cpr')
             );
-            if (cprFelt && cprFelt.value.replace(/\s/g,'') === cpr.replace(/\s/g,'')) {
+            const normCPR = s => s.replace(/[^0-9]/g, '');
+            if (cprFelt && normCPR(cprFelt.value) === normCPR(cpr)) {
               // Fundet! Hent alle felter
               const navnFelt    = embed.fields?.find(f => f.name.toLowerCase() === 'navn');
               const kønFelt     = embed.fields?.find(f => f.name.toLowerCase().includes('køn'));
@@ -981,7 +982,7 @@ async function postAnholdelse(data, betjent) {
 
 async function soegIdentifikationCPR4(sidst4) {
   const alle = await hentAlleIdKort();
-  return alle.filter(k => k.cpr && k.cpr.replace(/[-\s]/g, '').slice(-4) === sidst4);
+  return alle.filter(k => k.cpr && k.cpr.replace(/[^0-9]/g, '').slice(-4) === sidst4);
 }
 
 module.exports = { init, hentBeskeder, soegIdentifikation, soegIdentifikationCPR, soegIdentifikationCPR4, hentAlleIdKort, opdaterIdKort, postBode, postEboks, postRapport, postEfterlyst, postAnholdelse, sletGammelBesked };
