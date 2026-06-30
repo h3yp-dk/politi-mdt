@@ -117,13 +117,12 @@
   </div>
 
   <div class="nav">
-    <button class="nav-knap aktiv" onclick="visSide('dashboard')" data-side="dashboard">🏠 Dashboard</button>
-    <button class="nav-knap" onclick="visSide('kort')" data-side="kort">🗺 Kort</button>
-    <button class="nav-knap" onclick="visSide('opslag')" data-side="opslag">🔍 Opslag</button>
+    <button class="nav-knap aktiv" onclick="visSide('opslag')" data-side="opslag">🔍 Opslag</button>
     <button class="nav-knap" onclick="visSide('boeder')" data-side="boeder">📋 Bøder</button>
     <button class="nav-knap" onclick="visSide('anholdelser')" data-side="anholdelser">🚨 Anholdelser</button>
     <button class="nav-knap" onclick="visSide('rapporter')" data-side="rapporter">📁 Rapporter</button>
     <button class="nav-knap" onclick="visSide('retssager')" data-side="retssager">⚖️ Retssager</button>
+    <button class="nav-knap" onclick="visSide('identifikation')" data-side="identifikation">🪪 Identifikation</button>
   </div>
 
   <div class="topbar-højre">
@@ -150,9 +149,7 @@
 </div>
 
 <div class="indhold">
-  <div class="side aktiv" id="side-dashboard"><iframe id="ifr-dashboard" src="/sider/dashboard"></iframe></div>
-  <div class="side" id="side-kort"><iframe id="ifr-kort" src="/sider/kort"></iframe></div>
-  <div class="side" id="side-opslag"><iframe id="ifr-opslag" src="/sider/opslag"></iframe></div>
+  <div class="side aktiv" id="side-opslag"><iframe id="ifr-opslag" src="/sider/opslag"></iframe></div>
   <div class="side" id="side-boeder"><iframe id="ifr-boeder" src="/sider/boeder"></iframe></div>
   <div class="side" id="side-anholdelser"><iframe id="ifr-anholdelser" src="/sider/anholdelser"></iframe></div>
   <div class="side" id="side-rapporter"><iframe id="ifr-rapporter" src="/sider/rapporter"></iframe></div>
