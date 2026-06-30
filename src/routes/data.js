@@ -54,6 +54,19 @@ router.get('/identifikation/cpr/:cpr', requireAuth, requireGodkendt, async (req,
   }
 });
 
+// Søg via de sidste 4 cifre af CPR-nummer
+router.get('/identifikation/cpr4/:digits', requireAuth, requireGodkendt, async (req, res) => {
+  try {
+    const discord = require('./discord');
+    const digits = req.params.digits;
+    if (!/^\d{4}$/.test(digits)) return res.status(400).json({ fejl: 'Skal være præcis 4 cifre' });
+    const resultat = await discord.soegIdentifikationCPR4(digits);
+    res.json(resultat);
+  } catch (e) {
+    res.status(500).json({ fejl: e.message });
+  }
+});
+
 // Søg i identifikations-forum via navn/username (fallback)
 router.get('/identifikation/:query', requireAuth, requireGodkendt, async (req, res) => {
   try {

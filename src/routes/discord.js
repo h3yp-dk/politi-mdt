@@ -113,25 +113,8 @@ function init() {
       }
     }
 
-    // Start identifikationssystem — kør igennem alle members
-    setTimeout(() => initIdentifikation(), 5000); // Vent 5 sek efter boot
   });
 
-  // Ny member joiner → opret ID-kort
-  client.on('guildMemberAdd', async (member) => {
-    if (member.guild.id !== process.env.DISCORD_MAIN_GUILD_ID) return;
-    if (member.user.bot) return;
-    console.log(`[ID] Ny member: ${member.user.username} — opretter ID-kort`);
-    await opretIdKort(member.user.id, member.user.username);
-  });
-
-  // Member forlader → slet ID-kort
-  client.on('guildMemberRemove', async (member) => {
-    if (member.guild.id !== process.env.DISCORD_MAIN_GUILD_ID) return;
-    if (member.user.bot) return;
-    console.log(`[ID] Member forlod: ${member.user.username} — sletter ID-kort`);
-    await sletIdKort(member.user.username);
-  });
   client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
     console.error('[Discord Bot] Login fejl:', err.message);
   });
@@ -422,76 +405,6 @@ async function postBode(data) {
   return sendTilKanal(process.env.DISCORD_BOEDE_KANAL_ID, trådNavn, { embeds: [embed] });
 }
 
-// ── IDENTIFIKATION: Opret ID-kort ────────────────────────────────────────────
-async function opretIdKort(userId, username) {
-  const kanalId = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
-  if (!kanalId || !client?.isReady()) return null;
-
-  // Tjek om ID-kort allerede eksisterer
-  try {
-    const kanal = await client.channels.fetch(kanalId).catch(() => null);
-    if (!kanal) return null;
-
-    // Søg i eksisterende tråde
-    const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
-    const eksist = [...aktive.threads.values()].find(t =>
-      t.name === username || (t.messages && false) // check footer later
-    );
-
-    // Tjek arkiverede
-    const arkiv = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-    const eksistArkiv = [...arkiv.threads.values()].find(t => t.name === username);
-
-    if (eksist || eksistArkiv) {
-      console.log(`[ID] Eksisterende ID-kort for ${username} — springer over`);
-      return (eksist || eksistArkiv).id;
-    }
-
-    // Opret nyt ID-kort
-    const { embed, navn, cpr } = byggIdEmbed(userId, username);
-
-    const tråd = await kanal.threads.create({
-      name: username.substring(0, 100),
-      message: {
-        content: `**${username}**`,
-        embeds: [embed]
-      }
-    });
-
-    console.log(`[ID] ID-kort oprettet: ${username} → ${navn} (${cpr})`);
-    return tråd.id;
-
-  } catch (e) {
-    console.error(`[ID] Fejl ved oprettelse af ID-kort for ${username}:`, e.message);
-    return null;
-  }
-}
-
-// ── IDENTIFIKATION: Slet ID-kort ─────────────────────────────────────────────
-async function sletIdKort(username) {
-  const kanalId = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
-  if (!kanalId || !client?.isReady()) return;
-
-  try {
-    const kanal = await client.channels.fetch(kanalId).catch(() => null);
-    if (!kanal) return;
-
-    const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
-    const arkiv  = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-    const alleTråde = [...aktive.threads.values(), ...arkiv.threads.values()];
-
-    for (const tråd of alleTråde) {
-      if (tråd.name === username) {
-        await tråd.delete().catch(() => {});
-        console.log(`[ID] ID-kort slettet for ${username}`);
-        return;
-      }
-    }
-  } catch (e) {
-    console.error(`[ID] Fejl ved sletning af ID-kort:`, e.message);
-  }
-}
-
 // ── IDENTIFIKATION: Søg på CPR-nummer ────────────────────────────────────────
 async function soegIdentifikationCPR(cpr) {
   const kanalId = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
@@ -544,83 +457,6 @@ async function soegIdentifikationCPR(cpr) {
   } catch (e) {
     console.error('[ID] soegIdentifikationCPR fejl:', e.message);
     return null;
-  }
-}
-
-// ── IDENTIFIKATION: Kør igennem alle members ved opstart ─────────────────────
-async function initIdentifikation() {
-  const guildId  = process.env.DISCORD_MAIN_GUILD_ID;
-  const kanalId  = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
-  if (!guildId || !kanalId || !client?.isReady()) return;
-
-  try {
-    const guild = await client.guilds.fetch(guildId).catch(() => null);
-    if (!guild) { console.warn('[ID] Kunne ikke hente Nyhavn RP guild'); return; }
-
-    console.log(`[ID] Starter identifikationscheck for ${guild.name}...`);
-
-    // Hent alle eksisterende tråd-navne OG discord IDs fra footers
-    const kanal = await client.channels.fetch(kanalId).catch(() => null);
-    if (!kanal) return;
-
-    const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
-    const arkiv  = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-    const alleTråde = [...aktive.threads.values(), ...arkiv.threads.values()];
-
-    // Byg sæt af eksisterende: både username (tråd-navn) og discord IDs
-    const eksisterendeNavne = new Set(alleTråde.map(t => t.name.toLowerCase()));
-    const eksisterendeIds   = new Set();
-
-    // Hent discord IDs fra footers (første besked i hver tråd)
-    for (const tråd of alleTråde.slice(0, 200)) { // max 200 for hastighed
-      try {
-        const msgs = await tråd.messages.fetch({ limit: 1 });
-        const msg  = msgs.first();
-        if (msg?.embeds?.[0]?.footer?.text) {
-          const footer = msg.embeds[0].footer.text;
-          const id = footer.split('·').pop()?.trim();
-          if (id && /^\d+$/.test(id)) eksisterendeIds.add(id);
-        }
-      } catch {}
-    }
-    console.log(`[ID] ${eksisterendeNavne.size} eksisterende ID-kort fundet`);
-
-    // Hent alle members (paginated)
-    let allMembers = [];
-    let derniere = null;
-    while (true) {
-      const batch = await guild.members.list({ limit: 1000, after: derniere }).catch(() => null);
-      if (!batch || batch.size === 0) break;
-      allMembers = allMembers.concat([...batch.values()]);
-      if (batch.size < 1000) break;
-      derniere = batch.last()?.id;
-    }
-
-    console.log(`[ID] ${allMembers.length} members fundet — tjekker...`);
-
-    let oprettet = 0, sprungetOver = 0;
-    for (const member of allMembers) {
-      // Spring bots over
-      if (member.user?.bot) { sprungetOver++; continue; }
-      const username = member.user?.username || member.displayName;
-      // Spring over hvis username eller discord ID allerede har et kort
-      if (eksisterendeNavne.has(username.toLowerCase()) || eksisterendeIds.has(member.user.id)) {
-        sprungetOver++; continue;
-      }
-
-      await opretIdKort(member.user.id, username);
-      eksisterendeIds.add(member.user.id);
-      eksisterendeNavne.add(username);
-      oprettet++;
-
-      // Vent lidt mellem oprettelser så vi ikke rammer rate limit
-      await new Promise(r => setTimeout(r, 800));
-    }
-
-    console.log(`[ID] Færdig — ${oprettet} oprettet, ${sprungetOver} sprunget over`);
-
-  } catch (e) {
-    console.error('[ID] initIdentifikation fejl:', e.message);
   }
 }
 
@@ -1143,4 +979,9 @@ async function postAnholdelse(data, betjent) {
     `${data.anholdt_navn} — ${data.rapport_nr}`, { embeds: [embed] });
 }
 
-module.exports = { init, hentBeskeder, soegIdentifikation, soegIdentifikationCPR, hentAlleIdKort, opdaterIdKort, opretIdKort, sletIdKort, postBode, postEboks, postRapport, postEfterlyst, postAnholdelse, sletGammelBesked };
+async function soegIdentifikationCPR4(sidst4) {
+  const alle = await hentAlleIdKort();
+  return alle.filter(k => k.cpr && k.cpr.replace(/[-\s]/g, '').slice(-4) === sidst4);
+}
+
+module.exports = { init, hentBeskeder, soegIdentifikation, soegIdentifikationCPR, soegIdentifikationCPR4, hentAlleIdKort, opdaterIdKort, postBode, postEboks, postRapport, postEfterlyst, postAnholdelse, sletGammelBesked };

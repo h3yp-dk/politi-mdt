@@ -81,10 +81,7 @@
           <div class="auth-lbl">Tjenestenummer *</div>
           <input class="auth-input" id="badge" placeholder="G2512" style="font-family:'Share Tech Mono',monospace;margin-bottom:0">
         </div>
-        <div>
-          <div class="auth-lbl">Vognummer</div>
-          <input class="auth-input" id="vognummer" placeholder="B-1102" style="font-family:'Share Tech Mono',monospace;margin-bottom:0">
-        </div>
+        <div></div>
       </div>
 
       <div class="divider-h"></div>
@@ -179,7 +176,6 @@ async function opret() {
   var fornavn   = document.getElementById('fornavn').value.trim();
   var efternavn = document.getElementById('efternavn').value.trim();
   var badge     = document.getElementById('badge').value.trim();
-  var vognummer = document.getElementById('vognummer').value.trim();
 
   if (!email || !pw || !fornavn || !efternavn || !badge) {
     document.getElementById('fejl-boks').innerHTML = '<div class="auth-fejl">Udfyld alle felter markeret med *</div>';
@@ -204,7 +200,7 @@ async function opret() {
         fornavn:      fornavn,
         efternavn:    efternavn,
         badge_nummer: badge.toUpperCase(),
-        kaldesignal:  (vognummer || badge).toUpperCase(),
+        kaldesignal:  badge.toUpperCase(),
         rang:         valgtRang,
         afdeling:     hentAfdelinger()
       })

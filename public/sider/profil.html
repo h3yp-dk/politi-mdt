@@ -73,15 +73,9 @@
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <div class="field">
-          <label>Tjenestenummer</label>
-          <input type="text" id="badge_nummer" placeholder="G2512" style="font-family:'Share Tech Mono',monospace;">
-        </div>
-        <div class="field">
-          <label>Vognummer</label><span style="font-size:10px;color:var(--muted2);"> (eks: B-1102)</span>
-          <input type="text" id="kaldesignal" placeholder="B-1102" style="font-family:'Share Tech Mono',monospace;">
-        </div>
+      <div class="field">
+        <label>Tjenestenummer</label>
+        <input type="text" id="badge_nummer" placeholder="G2512" style="font-family:'Share Tech Mono',monospace;">
       </div>
 
       <div class="field">
@@ -136,7 +130,6 @@
     document.getElementById('fornavn').value      = mig.fornavn      || '';
     document.getElementById('efternavn').value    = mig.efternavn    || '';
     document.getElementById('badge_nummer').value = mig.badge_nummer || '';
-    document.getElementById('kaldesignal').value  = mig.kaldesignal  || '';
     saetAfdelinger(mig.afdeling || '');
 
     // Rang
@@ -155,7 +148,7 @@
 
     document.getElementById('vis-navn').textContent    = mig.fornavn ? `${mig.fornavn} ${mig.efternavn}` : mig.discord_navn;
     document.getElementById('vis-rang').textContent    = mig.rang ? `${mig.rang} · ${mig.afdeling}` : '—';
-    document.getElementById('vis-badge').textContent   = mig.badge_nummer ? `Tjeneste: ${mig.badge_nummer} · Vogn: ${mig.kaldesignal}` : '—';
+    document.getElementById('vis-badge').textContent   = mig.badge_nummer ? `Tjeneste: ${mig.badge_nummer}` : '—';
     document.getElementById('vis-discord').textContent = mig.discord_navn;
     document.getElementById('vis-godkendt').innerHTML  = mig.godkendt
       ? '<span class="badge badge-grøn">Godkendt</span>'
@@ -179,7 +172,6 @@
           fornavn:      document.getElementById('fornavn').value.trim(),
           efternavn:    document.getElementById('efternavn').value.trim(),
           badge_nummer: document.getElementById('badge_nummer').value.trim().toUpperCase(),
-          kaldesignal:  document.getElementById('kaldesignal').value.trim().toUpperCase(),
           rang:         valgtRang,
           afdeling:     hentAfdelinger()
         })

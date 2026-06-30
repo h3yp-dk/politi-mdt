@@ -319,7 +319,7 @@ body {
           <div class="ff"><label>Vognummer</label><input type="text" id="f-kaldesignal" placeholder="B-1102"></div>
         </div>
         <div class="fg2" style="margin-bottom:12px;">
-          <div class="ff"><label>Myndighed</label><input type="text" id="f-myndighed" value="Københavns Politi"></div>
+          <div class="ff"><label>Myndighed</label><input type="text" id="f-myndighed" value="Østjyllands Politi"></div>
           <div class="ff"><label>Afdeling(er)</label><div class="afdeling-grid" id="afdeling-grid-r">
   <div class="afdeling-valg"><input type="checkbox" id="afdr-0" value="Reaktionssektionen"><label for="afdr-0">Reaktionssektionen</label></div>
   <div class="afdeling-valg"><input type="checkbox" id="afdr-1" value="Beredskabssektionen"><label for="afdr-1">Beredskabssektionen</label></div>
@@ -729,7 +729,7 @@ async function startSide() {
   document.getElementById('f-dato').value=nu.toLocaleDateString('da-DK',{year:'numeric',month:'2-digit',day:'2-digit'}).split('.').reverse().join('-');
   document.getElementById('f-tid').value=nu.toLocaleTimeString('da-DK',{hour:'2-digit',minute:'2-digit'});
   if(mig){
-    document.getElementById('f-navn').value=mig.roblox_brugernavn||mig.discord_navn||'';
+    document.getElementById('f-navn').value=(mig.fornavn&&mig.efternavn)?mig.fornavn+' '+mig.efternavn:mig.discord_navn||'';
     document.getElementById('f-rang').value=mig.rang||'';
     document.getElementById('f-badge').value=mig.badge_nummer||'';
     document.getElementById('f-kaldesignal').value=mig.kaldesignal||'';
@@ -923,7 +923,7 @@ async function aabneRediger(id) {
     document.getElementById('form-status').value           = rapport.status || 'kladde';
 
     // Betjent
-    document.getElementById('f-navn').value        = mig?.roblox_brugernavn || mig?.discord_navn || '';
+    document.getElementById('f-navn').value        = (mig?.fornavn&&mig?.efternavn)?mig.fornavn+' '+mig.efternavn:mig?.discord_navn||'';
     document.getElementById('f-rang').value        = mig?.rang || '';
     document.getElementById('f-badge').value       = mig?.badge_nummer || '';
     document.getElementById('f-kaldesignal').value = mig?.kaldesignal || '';

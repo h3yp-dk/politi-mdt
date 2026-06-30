@@ -45,10 +45,10 @@ body { display: grid; grid-template-columns: 280px 1fr; height: 100vh; overflow:
 <div class="soege-panel">
   <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Opslag</div>
   <div class="soege-felt">
-    <input type="text" id="soege-input" placeholder="Indtast CPR-nummer..." autocomplete="off">
-    <button class="btn btn-primary" id="soeg-knap">Sog</button>
+    <input type="text" id="soege-input" placeholder="CPR-nummer eller sidste 4 cifre..." autocomplete="off">
+    <button class="btn btn-primary" id="soeg-knap">Søg</button>
   </div>
-  <div style="font-size:11px;color:var(--muted2);">Format: DDMMAAAA-XXXX</div>
+  <div style="font-size:11px;color:var(--muted2);">Format: DDMMAAAA-XXXX · eller blot de 4 sidste cifre</div>
   <div id="historik-sektion" style="display:none;margin-top:8px;">
     <div style="font-size:10px;color:var(--muted2);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;">Seneste opslag</div>
     <div id="historik-liste" style="display:flex;flex-direction:column;gap:5px;"></div>
@@ -73,7 +73,7 @@ try { historik = JSON.parse(localStorage.getItem('opslag_historik') || '[]'); } 
 
 function init(tok, url, bruger) {
   token = tok;
-  backendUrl = url || 'https://dk-politimdt-production.up.railway.app';
+  backendUrl = url !== undefined ? url : '';
   if (!_init) {
     _init = true;
     document.getElementById('soege-input').addEventListener('keydown', function(e) {
@@ -97,7 +97,7 @@ setTimeout(function() {
   if (!_init) {
     try {
       var t = window.parent.token || '';
-      if (t) init(t, 'https://dk-politimdt-production.up.railway.app', null);
+      if (t) init(t, '', null);
     } catch(e) {}
   }
 }, 600);
@@ -110,8 +110,50 @@ async function soeg() {
   var q = document.getElementById('soege-input').value.trim();
   if (!q) return;
   var res = document.getElementById('resultat');
-  res.innerHTML = '<div class="tom-state"><div style="font-size:36px;">&#8635;</div><div style="font-size:13px;margin-top:8px;">Soeger...</div></div>';
-  await soegCPR(q);
+  res.innerHTML = '<div class="tom-state"><div style="font-size:36px;">&#8635;</div><div style="font-size:13px;margin-top:8px;">Søger...</div></div>';
+  if (/^\d{4}$/.test(q)) {
+    await soegCPR4(q);
+  } else {
+    await soegCPR(q);
+  }
+}
+
+async function soegCPR4(sidst4) {
+  var res = document.getElementById('resultat');
+  var r;
+  try {
+    r = await fetch(backendUrl + '/data/identifikation/cpr4/' + encodeURIComponent(sidst4), {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+  } catch(e) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon">&#10060;</div><div>Serverfejl: ' + e.message + '</div></div>';
+    return;
+  }
+  if (!r.ok) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon" style="font-size:48px;opacity:0.3;">&#128282;</div><div style="font-size:15px;margin-top:4px;">Ingen resultater for ' + sidst4 + '</div></div>';
+    return;
+  }
+  var liste = await r.json();
+  if (!liste.length) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon" style="font-size:48px;opacity:0.3;">&#128282;</div><div style="font-size:15px;margin-top:4px;">Ingen personer fundet med CPR der slutter på ' + sidst4 + '</div></div>';
+    return;
+  }
+  if (liste.length === 1) {
+    document.getElementById('soege-input').value = liste[0].cpr;
+    await soegCPR(liste[0].cpr);
+    return;
+  }
+  var html = '<div class="sektion"><div class="sektion-header"><div class="sektion-titel">Resultater — CPR slutter på ' + sidst4 + '</div><div class="sektion-antal">' + liste.length + ' personer</div></div>';
+  for (var i = 0; i < liste.length; i++) {
+    var p = liste[i];
+    var init1 = (p.navn || '?').charAt(0).toUpperCase();
+    html += '<div class="raekke" style="cursor:pointer;" onclick="document.getElementById(\'soege-input\').value=\'' + (p.cpr||'').replace(/'/g,'') + '\';soegCPR(\'' + (p.cpr||'').replace(/'/g,'') + '\')">';
+    html += '<div class="person-initialer" style="width:36px;height:36px;font-size:14px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;color:white;flex-shrink:0;">' + init1 + '</div>';
+    html += '<div class="raekke-hoved"><div class="raekke-titel">' + (p.navn || '—') + '</div><div class="raekke-sub" style="font-family:\'Share Tech Mono\',monospace;">' + (p.cpr || '—') + '</div></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  res.innerHTML = html;
 }
 
 async function soegCPR(cpr) {

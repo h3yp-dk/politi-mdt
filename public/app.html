@@ -42,14 +42,6 @@
 
   .sep { width:1px; height:24px; background:rgba(255,255,255,0.1); }
 
-  .cab-knap { display:flex; align-items:center; gap:7px; background:rgba(0,0,0,0.25);
-    border:1px solid rgba(255,255,255,0.1); border-radius:4px; padding:5px 12px;
-    cursor:pointer; transition:all 0.15s; font-family:'Rajdhani',sans-serif; }
-  .cab-knap:hover { background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.18); }
-  .cab-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-  .cab-label { font-size:12px; font-weight:600; color:var(--white); letter-spacing:0.5px; }
-  .cab-pil { font-size:8px; color:rgba(255,255,255,0.4); }
-
   .avatar { width:32px; height:32px; border-radius:50%; background:var(--politi-blå);
     display:flex; align-items:center; justify-content:center; font-size:13px;
     font-weight:700; color:white; cursor:pointer; border:2px solid rgba(255,255,255,0.15);
@@ -62,14 +54,6 @@
     box-shadow:0 10px 40px rgba(0,0,0,0.6),0 0 0 1px rgba(26,110,245,0.1);
     display:none; animation:fadeIn 0.12s ease; }
   .dropdown.vis { display:block; }
-
-  #cab-dd { top:58px; right:100px; min-width:200px; padding:6px; }
-  .cab-valg { display:flex; align-items:center; gap:10px; padding:8px 10px;
-    border-radius:4px; cursor:pointer; transition:background 0.1s; font-family:'Rajdhani',sans-serif; }
-  .cab-valg:hover { background:rgba(255,255,255,0.07); }
-  .cab-valg.aktiv { background:rgba(26,110,245,0.12); }
-  .cab-valg-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-  .cab-valg-label { font-size:13px; font-weight:600; }
 
   #profil-dd { top:58px; right:14px; min-width:220px; overflow:hidden; }
   .profil-hdr { padding:14px 16px; background:rgba(0,0,0,0.2); border-bottom:1px solid rgba(255,255,255,0.08); }
@@ -128,16 +112,10 @@
   <div class="topbar-højre">
     <div class="ur" id="ur">00:00:00</div>
     <div class="sep"></div>
-    <div class="cab-knap" onclick="toggleDD('cab-dd')" id="cab-knap">
-      <div class="cab-dot" id="cab-dot"></div>
-      <div class="cab-label" id="cab-label">Out of Service</div>
-      <span class="cab-pil">▼</span>
-    </div>
     <div class="avatar" onclick="toggleDD('profil-dd')" id="avatar">?</div>
   </div>
 </div>
 
-<div class="dropdown" id="cab-dd"></div>
 <div class="dropdown" id="profil-dd">
   <div class="profil-hdr">
     <div class="profil-navn" id="pd-navn">—</div>
@@ -163,17 +141,7 @@
 <div id="noedopkald-boks"></div>
 
 <script>
-const CAB_LIST = [
-  { v:'patrulje',       l:'På Patrulje',    c:'#22c55e' },
-  { v:'tilgaengelig',   l:'Tilgængelig',     c:'#22c55e' },
-  { v:'optaget',        l:'Optaget',         c:'#eab308' },
-  { v:'eftersaettelse', l:'Eftersættelse',   c:'#3b82f6' },
-  { v:'utilgaengelig',  l:'Utilgængelig',    c:'#ef4444' },
-  { v:'out_of_service', l:'Out of Service',  c:'#6c7a96' },
-  { v:'offline',        l:'Offline',         c:'#374151' },
-];
-
-let token = null, mig = null, cabStatus = 'out_of_service', ws = null;
+let token = null, mig = null, ws = null;
 
 setInterval(() => {
   document.getElementById('ur').textContent =
@@ -204,15 +172,6 @@ async function init() {
 
   if (mig.er_admin) document.getElementById('admin-item').style.display = '';
 
-  cabStatus = 'out_of_service';
-  opdaterCabUI('out_of_service');
-  byggCabDD();
-  fetch('/cab/status', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ status: 'out_of_service' })
-  }).catch(() => {});
-
   forbindWS();
   sendTilAlleIframes({ type: 'init', token, backend: '', bruger: mig });
 
@@ -242,37 +201,6 @@ function visSide(navn) {
   const ifr = document.getElementById(`ifr-${navn}`);
   if (ifr && token) { try { ifr.contentWindow.postMessage({ type: 'init', token, backend: '', bruger: mig }, '*'); } catch {} }
   lukDD();
-}
-
-function byggCabDD() {
-  document.getElementById('cab-dd').innerHTML = CAB_LIST.map(s => `
-    <div class="cab-valg ${s.v === cabStatus ? 'aktiv' : ''}" onclick="saetStatus('${s.v}')">
-      <div class="cab-valg-dot" style="background:${s.c}"></div>
-      <div class="cab-valg-label" style="color:${s.c}">${s.l}</div>
-    </div>`).join('');
-}
-
-function opdaterCabUI(status) {
-  const s = CAB_LIST.find(x => x.v === status) || CAB_LIST.at(-1);
-  document.getElementById('cab-dot').style.background = s.c;
-  document.getElementById('cab-label').textContent    = s.l;
-  document.getElementById('cab-label').style.color    = s.c;
-}
-
-async function saetStatus(status) {
-  lukDD();
-  const r = await fetch('/cab/status', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ status })
-  }).catch(() => null);
-  if (r?.ok) {
-    cabStatus = status;
-    opdaterCabUI(status);
-    byggCabDD();
-    sendTilAlleIframes({ type: 'cab_opdatering', data: { status } });
-    toast('Status', CAB_LIST.find(s => s.v === status)?.l, 'info');
-  }
 }
 
 function forbindWS() {
@@ -326,17 +254,11 @@ function toggleDD(id) {
   if (!vis) el.classList.add('vis');
 }
 function lukDD() { document.querySelectorAll('.dropdown').forEach(d => d.classList.remove('vis')); }
-document.addEventListener('click', e => { if (!e.target.closest('.dropdown, .cab-knap, .avatar')) lukDD(); });
+document.addEventListener('click', e => { if (!e.target.closest('.dropdown, .avatar')) lukDD(); });
 
 function logUd() {
-  fetch('/cab/status', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ status: 'offline' })
-  }).catch(() => {}).finally(() => {
-    localStorage.removeItem('mdt_token');
-    window.location.href = '/login';
-  });
+  localStorage.removeItem('mdt_token');
+  window.location.href = '/login';
 }
 
 init();
