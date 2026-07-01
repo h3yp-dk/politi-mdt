@@ -22,7 +22,7 @@ app.get('/registrer', (_, res) => res.sendFile(path.join(PUBLIC, 'registrer.html
 app.get('/app',       (_, res) => res.sendFile(path.join(PUBLIC, 'app.html')));
 
 // Sub-sider til iframes
-const SIDER = ['dashboard','kort','opslag','boeder','anholdelser','rapporter','retssager','profil','admin','identifikation'];
+const SIDER = ['dashboard','kort','opslag','boeder','anholdelser','rapporter','retssager','profil','admin','identifikation','vagtcentral'];
 SIDER.forEach(s => {
   app.get(`/sider/${s}`, (_, res) => res.sendFile(path.join(PUBLIC, 'sider', `${s}.html`)));
 });
