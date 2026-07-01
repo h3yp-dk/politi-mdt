@@ -107,7 +107,6 @@
     <button class="nav-knap" onclick="visSide('rapporter')" data-side="rapporter">📁 Rapporter</button>
     <button class="nav-knap" onclick="visSide('retssager')" data-side="retssager">⚖️ Retssager</button>
     <button class="nav-knap" onclick="visSide('identifikation')" data-side="identifikation">🪪 Identifikation</button>
-    <button class="nav-knap" onclick="visSide('vagtcentral')" data-side="vagtcentral">🗺 Vagtcentral</button>
   </div>
 
   <div class="topbar-højre">
@@ -136,7 +135,6 @@
   <div class="side" id="side-profil"><iframe id="ifr-profil" src="/sider/profil"></iframe></div>
   <div class="side" id="side-admin"><iframe id="ifr-admin" src="/sider/admin"></iframe></div>
   <div class="side" id="side-identifikation"><iframe id="ifr-identifikation" src="/sider/identifikation"></iframe></div>
-  <div class="side" id="side-vagtcentral"><iframe id="ifr-vagtcentral" src="/sider/vagtcentral"></iframe></div>
 </div>
 
 <div id="toasts"></div>
@@ -212,7 +210,7 @@ function forbindWS() {
     ws.onmessage = e => {
       try {
         const { type, data } = JSON.parse(e.data);
-        if (type === 'nyt_noedopkald') { visNoedopkald(data); sendTilVC({ type: 'nyt_noedopkald', data }); }
+        if (type === 'nyt_noedopkald') visNoedopkald(data);
         if (type === 'cab_opdatering') sendTilAlleIframes({ type: 'cab_opdatering', data });
       } catch {}
     };
@@ -224,21 +222,19 @@ function visNoedopkald(data) {
   const boks = document.getElementById('noedopkald-boks');
   const el = document.createElement('div');
   el.className = 'noed-popup';
+  const idx = Date.now();
+  window._noedOpkald = window._noedOpkald || {};
+  window._noedOpkald[idx] = data;
   el.innerHTML = `
     <div class="noed-top">🚨 NYT NØDOPKALD #${data.opkaldsnr || ''}</div>
     <div class="noed-tekst">${data.beskrivelse || 'Ingen beskrivelse'}</div>
     <div class="noed-lok">📍 ${data.lokation || '—'}</div>
     <div class="noed-knapper">
-      <button class="btn btn-sm btn-primary" onclick="this.closest('.noed-popup').remove();visSide('vagtcentral')">Tilgå VC</button>
+      <button class="btn btn-sm btn-primary" onclick="this.closest('.noed-popup').remove();visSide('kort')">Tilgå</button>
       <button class="btn btn-sm btn-outline" onclick="this.closest('.noed-popup').remove()">Luk</button>
     </div>`;
   boks.appendChild(el);
-  // Ingen auto-slet — bruger lukker manuelt
-}
-
-function sendTilVC(data) {
-  const ifr = document.getElementById('ifr-vagtcentral');
-  try { ifr?.contentWindow?.postMessage(data, '*'); } catch {}
+  setTimeout(() => el.remove(), 30000);
 }
 
 function toast(titel, tekst, klasse = 'info') {
