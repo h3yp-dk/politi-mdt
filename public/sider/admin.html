@@ -273,7 +273,7 @@
         </div>
         ${b.rang ? `
         <select class="rang-select" onchange="opdaterRang(${b.id}, this.value)">
-          ${['Betjent','Overbetjent','Kriminalbetjent','Sergeant','Inspektør','Politikommissær']
+          ${['Rigspolitichef','Vice Rigspolitichef','Politidirektør','Stabschef','Chef Politiinspektør','Chef Anklager','Politiinspektør','Vice Politiinspektør','Politikommissær','Politi Assistent af 1. Grad','Politi Assistent','Politi Betjent','Politi Kadet']
             .map(r => `<option ${r === b.rang ? 'selected' : ''}>${r}</option>`).join('')}
         </select>` : ''}
       </div>

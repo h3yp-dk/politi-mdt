@@ -18,7 +18,7 @@
   .profil-rang { font-size: 13px; color: var(--accent2); margin-top: 4px; }
   .profil-badge { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 6px; }
 
-  .rang-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rang-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .rang-valg {
     background: var(--panel2); border: 1px solid var(--border);
     border-radius: 5px; padding: 10px 12px; cursor: pointer;
@@ -81,13 +81,21 @@
       <div class="field">
         <label>Rang</label>
         <div class="rang-grid" id="rang-grid">
-          <div class="rang-valg valgt" onclick="vaelgRang(this,'Betjent')"><div class="rang-valg-titel">Betjent</div></div>
-          <div class="rang-valg" onclick="vaelgRang(this,'Overbetjent')"><div class="rang-valg-titel">Overbetjent</div></div>
-          <div class="rang-valg" onclick="vaelgRang(this,'Kriminalbetjent')"><div class="rang-valg-titel">Kriminalbetjent</div></div>
-          <div class="rang-valg" onclick="vaelgRang(this,'Sergeant')"><div class="rang-valg-titel">Sergeant</div></div>
-          <div class="rang-valg" onclick="vaelgRang(this,'Inspektør')"><div class="rang-valg-titel">Inspektør</div></div>
-          <div class="rang-valg" onclick="vaelgRang(this,'Politikommissær')"><div class="rang-valg-titel">Kommissær</div></div>
-  
+          <div class="rang-valg" onclick="vaelgRang(this,'Rigspolitichef')"><div class="rang-valg-titel">Rigspolitichef</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Vice Rigspolitichef')"><div class="rang-valg-titel">Vice Rigspolitichef</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politidirektør')"><div class="rang-valg-titel">Politidirektør</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Stabschef')"><div class="rang-valg-titel">Stabschef</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Chef Politiinspektør')"><div class="rang-valg-titel">Chef Politiinspektør</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Chef Anklager')"><div class="rang-valg-titel">Chef Anklager</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politiinspektør')"><div class="rang-valg-titel">Politiinspektør</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Vice Politiinspektør')"><div class="rang-valg-titel">Vice Politiinspektør</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politikommissær')"><div class="rang-valg-titel">Politikommissær</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politi Assistent af 1. Grad')"><div class="rang-valg-titel">Politi Assistent af 1. Grad</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politi Assistent')"><div class="rang-valg-titel">Politi Assistent</div></div>
+          <div class="rang-valg" onclick="vaelgRang(this,'Politi Betjent')"><div class="rang-valg-titel">Politi Betjent</div></div>
+          <div class="rang-valg valgt" onclick="vaelgRang(this,'Politi Kadet')"><div class="rang-valg-titel">Politi Kadet</div></div>
+        </div>
+
         <div class="field">
           <label>Afdeling(er)</label>
           <div class="afdeling-grid" id="afdeling-grid">
@@ -133,7 +141,7 @@
     saetAfdelinger(mig.afdeling || '');
 
     // Rang
-    valgtRang = mig.rang || 'Betjent';
+    valgtRang = mig.rang || 'Politi Kadet';
     document.querySelectorAll('.rang-valg').forEach(el => {
       el.classList.toggle('valgt', el.querySelector('.rang-valg-titel')?.textContent === valgtRang);
     });
