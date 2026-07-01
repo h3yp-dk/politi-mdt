@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+
+<link rel="stylesheet" href="/style.css">
+<style>
+body { display: grid; grid-template-columns: 280px 1fr; height: 100vh; overflow: hidden; background: var(--bg); }
+.soege-panel { border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 16px; gap: 10px; overflow-y: auto; background: var(--panel); }
+.soege-felt { display: flex; gap: 8px; }
+.soege-felt input { flex: 1; background: var(--panel2); border: 1px solid var(--border2); color: var(--text); font-family: 'Share Tech Mono', monospace; font-size: 13px; padding: 8px 10px; border-radius: 5px; outline: none; letter-spacing: 1px; }
+.soege-felt input:focus { border-color: var(--accent); }
+.soege-felt input::placeholder { color: var(--muted2); font-family: 'Rajdhani', sans-serif; letter-spacing: 0; font-size: 13px; }
+.resultat-panel { overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.tom-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 14px; color: var(--muted); }
+.tom-state-ikon { font-size: 52px; opacity: 0.2; }
+.sektion { background: var(--panel); border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.sektion-header { padding: 10px 14px; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.sektion-titel { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.sektion-antal { font-size: 11px; color: var(--muted2); }
+.raekke { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.raekke:last-child { border-bottom: none; }
+.raekke-hoved { flex: 1; min-width: 0; }
+.raekke-titel { font-size: 13px; color: var(--white); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.raekke-sub { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: 'Share Tech Mono', monospace; }
+.plade { display:inline-block; padding:3px 10px; border-radius:3px; font-size:12px; font-weight:700; background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.3); color:#60a5fa; font-family:'Share Tech Mono',monospace; letter-spacing:1px; }
+.badge { display:inline-block; padding:3px 9px; border-radius:3px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
+.badge.ok { background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.3); color:#4ade80; }
+.badge.advarsel { background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); color:#f87171; }
+.badge.ukendt { background:rgba(107,114,128,0.2); border:1px solid rgba(107,114,128,0.3); color:#9ca3af; }
+</style>
+</head>
+<body>
+
+<div class="soege-panel">
+  <div style="font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:2px;">Køretøjer</div>
+  <div class="soege-felt">
+    <input type="text" id="soege-input" placeholder="Nummerplade eller ejer..." autocomplete="off">
+    <button class="btn btn-primary" id="opdater-knap">Opdater</button>
+  </div>
+  <div style="font-size:11px;color:var(--muted2);">Viser alle køretøjer der er spawnet i serveren lige nu. Uregistrerede køretøjer er markeret rødt.</div>
+</div>
+
+<div class="resultat-panel" id="resultat">
+  <div class="tom-state">
+    <div class="tom-state-ikon">&#128663;</div>
+    <div style="font-size:14px;">Henter køretøjer...</div>
+  </div>
+</div>
+
+<script>
+var token = '';
+var backendUrl = '';
+var alleKoeretoejer = [];
+var _init = false;
+
+function init(tok, url, bruger) {
+  token = tok;
+  backendUrl = url !== undefined ? url : '';
+  if (!_init) {
+    _init = true;
+    document.getElementById('soege-input').addEventListener('input', filtrer);
+    document.getElementById('opdater-knap').addEventListener('click', hentKoeretoejer);
+    hentKoeretoejer();
+  }
+}
+
+window.addEventListener('message', function(e) {
+  var m = e.data || {};
+  if (m.type === 'init' && m.token) {
+    init(m.token, m.backend, m.bruger);
+  }
+});
+
+window.parent.postMessage({ type: 'klar' }, '*');
+
+setTimeout(function() {
+  if (!_init) {
+    try {
+      var t = window.parent.token || '';
+      if (t) init(t, '', null);
+    } catch(e) {}
+  }
+}, 600);
+
+async function hentKoeretoejer() {
+  var res = document.getElementById('resultat');
+  res.innerHTML = '<div class="tom-state"><div style="font-size:36px;">&#8635;</div><div style="font-size:13px;margin-top:8px;">Henter...</div></div>';
+  try {
+    var r = await fetch(backendUrl + '/erlc/koertojer', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    alleKoeretoejer = await r.json();
+  } catch(e) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon">&#10060;</div><div>Kan ikke hente køretøjer: ' + e.message + '</div></div>';
+    return;
+  }
+  visListe(alleKoeretoejer);
+}
+
+function filtrer() {
+  var q = document.getElementById('soege-input').value.trim().toLowerCase();
+  if (!q) { visListe(alleKoeretoejer); return; }
+  var filtreret = alleKoeretoejer.filter(function(v) {
+    return (v.Plate || '').toLowerCase().indexOf(q) !== -1 ||
+           (v.Owner || '').toLowerCase().indexOf(q) !== -1 ||
+           (v.Name || '').toLowerCase().indexOf(q) !== -1;
+  });
+  visListe(filtreret);
+}
+
+function badgeFor(v) {
+  if (v.registreret === true)  return '<span class="badge ok">Registreret</span>';
+  if (v.registreret === false) return '<span class="badge advarsel">Uregistreret</span>';
+  return '<span class="badge ukendt">Ukendt</span>';
+}
+
+function visListe(liste) {
+  var res = document.getElementById('resultat');
+  if (!liste.length) {
+    res.innerHTML = '<div class="tom-state"><div class="tom-state-ikon" style="font-size:48px;opacity:0.3;">&#128663;</div><div style="font-size:15px;margin-top:4px;">Ingen køretøjer fundet</div></div>';
+    return;
+  }
+
+  var uregistreret = liste.filter(function(v) { return v.registreret === false; });
+
+  var html = '';
+  if (uregistreret.length > 0) {
+    html += '<div class="sektion" style="border-color:rgba(239,68,68,0.4);"><div class="sektion-header"><div class="sektion-titel" style="color:#f87171;">&#9888; Uregistrerede køretøjer</div><div class="sektion-antal">' + uregistreret.length + '</div></div>';
+    for (var i = 0; i < uregistreret.length; i++) {
+      html += raekkeHtml(uregistreret[i]);
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="sektion"><div class="sektion-header"><div class="sektion-titel">Alle spawnede køretøjer</div><div class="sektion-antal">' + liste.length + '</div></div>';
+  for (var i = 0; i < liste.length; i++) {
+    html += raekkeHtml(liste[i]);
+  }
+  html += '</div>';
+
+  res.innerHTML = html;
+}
+
+function raekkeHtml(v) {
+  var html = '<div class="raekke">';
+  html += '<div class="raekke-hoved"><div class="raekke-titel">' + (v.Name || 'Ukendt model') + (v.ColorName ? ' · ' + v.ColorName : '') + '</div>';
+  html += '<div class="raekke-sub">Ejer: ' + (v.Owner || 'Ukendt') + '</div></div>';
+  html += '<span class="plade">' + (v.Plate || '—') + '</span>';
+  html += badgeFor(v);
+  html += '</div>';
+  return html;
+}
+</script>
+</body>
+</html>

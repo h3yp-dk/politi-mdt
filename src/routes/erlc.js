@@ -96,7 +96,39 @@ router.get('/kort/:navn', async (req, res) => {
   }
 });
 
-// Hent spawned køretøjer fra serveren
+// Cache for Roblox→registreret-opslag mod Bilregisteret (erlc-borgerservice)
+const registreretCache = new Map(); // roblox_navn (lowercase) -> { registreret: bool, tid: number }
+const REGISTRERET_CACHE_TID = 15000;
+
+async function erRegistreret(robloxNavn) {
+  const key = (robloxNavn || '').toLowerCase().trim();
+  if (!key) return null; // ukendt ejer — kan ikke afgøres
+
+  const cached = registreretCache.get(key);
+  const nu = Date.now();
+  if (cached && nu - cached.tid < REGISTRERET_CACHE_TID) return cached.registreret;
+
+  const url = process.env.ERLC_BORGERSERVICE_URL;
+  const apiKey = process.env.INTERNAL_API_KEY;
+  if (!url || !apiKey) return null; // broen er ikke konfigureret — kan ikke afgøres
+
+  try {
+    const { default: fetch } = await import('node-fetch');
+    const r = await fetch(
+      `${url.replace(/\/$/, '')}/api/bilregister/internt/opslag/${encodeURIComponent(robloxNavn)}`,
+      { headers: { 'X-Internal-Key': apiKey } }
+    );
+    if (!r.ok) return null;
+    const koeretoejer = await r.json();
+    const registreret = Array.isArray(koeretoejer) && koeretoejer.length > 0;
+    registreretCache.set(key, { registreret, tid: nu });
+    return registreret;
+  } catch {
+    return null;
+  }
+}
+
+// Hent spawned køretøjer fra serveren — flagger uregistrerede mod Bilregisteret
 router.get('/koertojer', requireAuth, requireGodkendt, async (req, res) => {
   try {
     // Tving frisk hentning ved køretøjsopslag
@@ -104,7 +136,13 @@ router.get('/koertojer', requireAuth, requireGodkendt, async (req, res) => {
     const data = await hentERLC();
     const vehicles = data.Vehicles || [];
     console.log(`[ER:LC] Køretøjer hentet: ${vehicles.length}`, vehicles.slice(0,3).map(v => v.Plate));
-    res.json(vehicles);
+
+    const berigede = await Promise.all(vehicles.map(async v => {
+      const registreret = await erRegistreret(v.Owner);
+      return { ...v, registreret };
+    }));
+
+    res.json(berigede);
   } catch (err) {
     console.error('[ER:LC] Køretøj fejl:', err.message);
     res.status(503).json({ fejl: 'Kan ikke hente køretøjer' });
