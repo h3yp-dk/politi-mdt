@@ -2,6 +2,24 @@ const { Client, GatewayIntentBits, EmbedBuilder, ChannelType } = require('discor
 
 let client = null;
 
+// Kør async-arbejde for en liste med begrænset samtidighed — undgår at fyre af
+// hundredvis af Discord-kald i ét ryk (rate-limit-storm), men er alligevel MEGA
+// hurtigere end at afvente dem én for én sekventielt (som tidligere var tilfældet
+// i hentAlleIdKort/soegIdentifikationCPR — årsagen til at "Henter ID-kort..." kunne
+// hænge i lang tid når identifikations-forummet har mange tråde).
+async function pMapLimit(items, limit, fn) {
+  const resultater = new Array(items.length);
+  let næste = 0;
+  async function arbejder() {
+    while (næste < items.length) {
+      const i = næste++;
+      resultater[i] = await fn(items[i], i);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, arbejder));
+  return resultater;
+}
+
 // ── ID-system hjælper ─────────────────────────────────────────────────────────
 const ADMIN_USER_ID = '623033555345342484';
 
@@ -410,50 +428,24 @@ async function soegIdentifikationCPR(cpr) {
   const kanalId = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
   if (!kanalId || !client?.isReady()) return null;
 
+  const normCPR = s => (s || '').replace(/[^0-9]/g, '');
+  const målCPR = normCPR(cpr);
+
   try {
-    const kanal = await client.channels.fetch(kanalId).catch(() => null);
-    if (!kanal) return null;
+    // Brug det cachede sæt hvis det er friskt — CPR-opslag rammer typisk samme
+    // datasæt som ID-Kort-dashboardet og CPR4-søgning, ingen grund til at spørge
+    // Discord igen inden for cache-vinduet.
+    const cacheAlderVedStart = Date.now() - _idKortCacheTid;
+    const alleKort = await hentAlleIdKort();
+    const fundet = alleKort.find(k => normCPR(k.cpr) === målCPR);
+    if (fundet) return fundet;
 
-    const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
-    const arkiv1 = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-    const arkiv2 = await kanal.threads.fetchArchived({ limit: 100, before: arkiv1.threads.last()?.id }).catch(() => ({ threads: new Map() }));
-    const alleTråde = [...aktive.threads.values(), ...arkiv1.threads.values(), ...arkiv2.threads.values()];
-
-    for (const tråd of alleTråde) {
-      try {
-        const msgs = await tråd.messages.fetch({ limit: 3 });
-        for (const msg of msgs.values()) {
-          for (const embed of msg.embeds) {
-            const cprFelt = embed.fields?.find(f =>
-              f.name.toLowerCase().includes('cpr')
-            );
-            const normCPR = s => s.replace(/[^0-9]/g, '');
-            if (cprFelt && normCPR(cprFelt.value) === normCPR(cpr)) {
-              // Fundet! Hent alle felter
-              const navnFelt    = embed.fields?.find(f => f.name.toLowerCase() === 'navn');
-              const kønFelt     = embed.fields?.find(f => f.name.toLowerCase().includes('køn'));
-              const adresseFelt = embed.fields?.find(f => f.name.toLowerCase().includes('adresse'));
-              const footer      = embed.footer?.text || '';
-              // Udtræk discord ID fra footer
-              const discordId   = footer.split('·').pop()?.trim() || null;
-              const username    = footer.split('·')[0]?.trim() || tråd.name;
-
-              return {
-                roblox_navn:  tråd.name,
-                rp_navn:      navnFelt?.value || '',
-                navn:         navnFelt?.value || '',
-                cpr:          cprFelt?.value || cpr,
-                kon:          kønFelt?.value || 'Mand',
-                adresse:      adresseFelt?.value || 'Hjemløs',
-                discord_id:   discordId,
-                username,
-                tråd_id:      tråd.id,
-                tråd_navn:    tråd.name,
-              };
-            }
-          }
-        }
-      } catch {}
+    // Ikke fundet — kun forsøg en frisk, ukachet hentning hvis det data vi lige brugte
+    // rent faktisk KOM fra en ældre cache (ingen grund til at spørge Discord igen, hvis
+    // ovenstående allerede var en helt ny hentning der stadig ikke fandt personen).
+    if (cacheAlderVedStart > 3000) {
+      const friskeKort = await hentAlleIdKort(true);
+      return friskeKort.find(k => normCPR(k.cpr) === målCPR) || null;
     }
     return null;
   } catch (e) {
@@ -462,56 +454,69 @@ async function soegIdentifikationCPR(cpr) {
   }
 }
 
-// ── IDENTIFIKATION: Hent alle ID-kort (til dashboard) ────────────────────────
-async function hentAlleIdKort() {
+// ── IDENTIFIKATION: Hent alle traade i identifikations-forummet (delt af flere funktioner) ──
+async function hentIdTråde() {
   const kanalId = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
   if (!kanalId || !client?.isReady()) return [];
+  const kanal = await client.channels.fetch(kanalId).catch(() => null);
+  if (!kanal) return [];
+
+  const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
+  const arkiv1 = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
+  const arkiv2 = await kanal.threads.fetchArchived({ limit: 100, before: [...arkiv1.threads.values()].pop()?.id }).catch(() => ({ threads: new Map() }));
+  return [...aktive.threads.values(), ...arkiv1.threads.values(), ...arkiv2.threads.values()];
+}
+
+// Uddrag ID-kort-felterne fra en tråds foerste besked med et CPR-felt.
+async function hentIdFraTråd(tråd) {
+  try {
+    const msgs = await tråd.messages.fetch({ limit: 3 });
+    for (const msg of msgs.values()) {
+      for (const embed of msg.embeds) {
+        const cprFelt = embed.fields?.find(f => f.name.toLowerCase().includes('cpr'));
+        if (!cprFelt) continue;
+        const navnFelt    = embed.fields?.find(f => f.name.toLowerCase() === 'navn');
+        const kønFelt     = embed.fields?.find(f => f.name.toLowerCase().includes('køn'));
+        const adresseFelt = embed.fields?.find(f => f.name.toLowerCase().includes('adresse'));
+        const footer      = embed.footer?.text || '';
+        const navnVal     = navnFelt?.value || '';
+        return {
+          tråd_id:     tråd.id,
+          tråd_navn:   tråd.name,
+          roblox_navn: tråd.name,
+          username:    footer.split('·')[0]?.trim() || tråd.name,
+          discord_id:  footer.split('·').pop()?.trim() || null,
+          navn:        navnVal || '—',
+          rp_navn:     navnVal,
+          cpr:         cprFelt?.value  || '—',
+          kon:         kønFelt?.value  || 'Mand',
+          adresse:     adresseFelt?.value || 'Hjemløs',
+          msg_id:      msg.id,
+        };
+      }
+    }
+  } catch {}
+  return null;
+}
+
+let _idKortCache = null;
+let _idKortCacheTid = 0;
+const ID_KORT_CACHE_TTL = 30000; // 30s — dashboard/CPR4-opslag kan genbruge samme hentning
+
+// ── IDENTIFIKATION: Hent alle ID-kort (til dashboard + CPR4-opslag) ──────────
+async function hentAlleIdKort(forceFrisk = false) {
+  const nu = Date.now();
+  if (!forceFrisk && _idKortCache && nu - _idKortCacheTid < ID_KORT_CACHE_TTL) return _idKortCache;
 
   try {
-    const kanal = await client.channels.fetch(kanalId).catch(() => null);
-    if (!kanal) return [];
-
-    const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
-    const arkiv1 = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-    const arkiv2 = await kanal.threads.fetchArchived({ limit: 100, before: [...arkiv1.threads.values()].pop()?.id }).catch(() => ({ threads: new Map() }));
-    const alleTråde = [
-      ...aktive.threads.values(),
-      ...arkiv1.threads.values(),
-      ...arkiv2.threads.values(),
-    ];
-
-    const resultat = [];
-    for (const tråd of alleTråde) {
-      try {
-        const msgs = await tråd.messages.fetch({ limit: 3 });
-        for (const msg of msgs.values()) {
-          for (const embed of msg.embeds) {
-            const cprFelt     = embed.fields?.find(f => f.name.toLowerCase().includes('cpr'));
-            const navnFelt    = embed.fields?.find(f => f.name.toLowerCase() === 'navn');
-            const kønFelt     = embed.fields?.find(f => f.name.toLowerCase().includes('køn'));
-            const adresseFelt = embed.fields?.find(f => f.name.toLowerCase().includes('adresse'));
-            if (cprFelt) {
-              const footer   = embed.footer?.text || '';
-              const username = footer.split('·')[0]?.trim() || tråd.name;
-              const discordId= footer.split('·').pop()?.trim() || null;
-              resultat.push({
-                tråd_id:  tråd.id,
-                username,
-                discord_id: discordId,
-                navn:     navnFelt?.value || '—',
-                cpr:      cprFelt?.value  || '—',
-                kon:      kønFelt?.value  || 'Mand',
-                adresse:  adresseFelt?.value || 'Hjemløs',
-                msg_id:   msg.id,
-              });
-              break;
-            }
-          }
-        }
-      } catch {}
-    }
-
-    return resultat.sort((a,b) => a.navn.localeCompare(b.navn, 'da'));
+    const alleTråde = await hentIdTråde();
+    // Hent alle traades foerste besked PARALLELT (begraenset samtidighed) i stedet for
+    // sekventielt — det var den egentlige aarsag til at siden haengte i lang tid.
+    const resultater = await pMapLimit(alleTråde, 15, hentIdFraTråd);
+    const resultat = resultater.filter(Boolean).sort((a, b) => a.navn.localeCompare(b.navn, 'da'));
+    _idKortCache = resultat;
+    _idKortCacheTid = nu;
+    return resultat;
   } catch (e) {
     console.error('[ID] hentAlleIdKort fejl:', e.message);
     return [];
@@ -549,6 +554,7 @@ async function opdaterIdKort(trådId, data) {
     .setTimestamp();
 
   await målBesked.edit({ embeds: [embed] });
+  _idKortCache = null; // ugyldiggør cachen saa aendringen slaar igennem med det samme
   console.log(`[ID] ID-kort opdateret: ${tråd.name} → ${navn}`);
 }
 
