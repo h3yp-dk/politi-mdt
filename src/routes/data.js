@@ -2,11 +2,61 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const { requireAuth, requireGodkendt, requireAdmin } = require('../middleware/auth');
+const { sendEboks } = require('../eboksBridge');
 
 function genNr(prefix) {
   const d = new Date();
   const dato = `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
   return `${prefix}-${dato}-${String(Math.floor(Math.random()*9000)+1000)}`;
+}
+
+// Opret eller opdater den boede der er koblet til en anholdelse/rapport (kilde_type+kilde_id).
+// Undgaar dubletter ved redigering — opdaterer beloeb/paragraffer paa den eksisterende
+// koblede boede i stedet for at oprette en ny, og roerer aldrig en allerede betalt boede.
+function synkroniserKildeBoede(kildeType, kildeId, discordId, borgerNavn, beloeb, paragraffer) {
+  if (!beloeb || beloeb <= 0) return null;
+  const eksist = db.prepare('SELECT * FROM boeder WHERE kilde_type=? AND kilde_id=?').get(kildeType, kildeId);
+  if (eksist) {
+    if (eksist.status === 'betalt') return eksist;
+    db.prepare('UPDATE boeder SET beloeb=?, paragraffer=?, borger_navn=?, discord_id=? WHERE id=?')
+      .run(beloeb, JSON.stringify(paragraffer), borgerNavn, discordId ? String(discordId) : null, eksist.id);
+    return db.prepare('SELECT * FROM boeder WHERE id=?').get(eksist.id);
+  }
+  const bodeNr = genNr(kildeType === 'anholdelse' ? 'AB' : 'RB');
+  const r = db.prepare(`INSERT INTO boeder
+    (bode_nr,borger_navn,discord_id,udstedt_af_navn,beloeb,paragraffer,status,kilde_type,kilde_id)
+    VALUES (?,?,?,?,?,?,'ubetalt',?,?)`
+  ).run(bodeNr, borgerNavn, discordId ? String(discordId) : null, null, beloeb, JSON.stringify(paragraffer), kildeType, kildeId);
+  return db.prepare('SELECT * FROM boeder WHERE id=?').get(r.lastInsertRowid);
+}
+
+// Leverer en formel e-Boks-besked for en rapport (kun ved indsendt/godkendt, ikke kladder).
+// For rapport-type 'bøde' med citations synkroniseres en koblet boede, og beskeden bliver betalbar.
+function leverRapportEboks({ rapportId, rapportNr, type, status, discordId, mistanktNavn, beskrivelse, lokation, citationListe }) {
+  if (!discordId || (status !== 'indsendt' && status !== 'godkendt')) return;
+
+  let bode = null;
+  if (type === 'bøde' && citationListe?.length) {
+    const total = citationListe.reduce((s, c) => s + (c.b || c.bøde || 0), 0);
+    const paragraffer = citationListe.map(c => c.n || c.navn || '');
+    bode = synkroniserKildeBoede('rapport', rapportId, discordId, mistanktNavn || 'Ukendt', total, paragraffer);
+  }
+
+  sendEboks({
+    discord_id: discordId,
+    afsender: 'Politiet',
+    type: 'rapport',
+    titel: `Rapport — ${rapportNr}`,
+    linjer: [
+      `Vi skal hermed give dig besked om en politirapport der vedrører dig.`,
+      beskrivelse ? `Beskrivelse: ${beskrivelse}` : null,
+      lokation ? `Lokation: ${lokation}` : null,
+      bode ? `I forbindelse med rapporten er der udstedt en bøde på ${bode.beloeb} kr., som kan betales direkte fra din bankkonto i e-Boks.` : null,
+    ].filter(Boolean),
+    til_navn: mistanktNavn || null,
+    ref: rapportNr,
+    betaling: bode ? { beloeb: bode.beloeb, kilde: 'politi-mdt', ekstern_id: bode.bode_nr } : null,
+  }).catch(() => {});
 }
 
 // ══════════════════════════════════════════════════════
@@ -155,12 +205,15 @@ router.get('/boeder', requireAuth, requireGodkendt, (req, res) => {
 
 router.post('/boeder', requireAuth, requireGodkendt, (req, res) => {
   const {
-    borger_navn, roblox_id, beloeb, paragraffer, beskrivelse, lokation, nummerplade,
+    borger_navn, discord_id, roblox_id, beloeb, paragraffer, beskrivelse, lokation, nummerplade,
     betjent_data, borger_data, koeretoej_data, postnummer, betalingsfrist, dato, tid, bode_nr
   } = req.body;
 
   if (!borger_navn || !beloeb || !paragraffer?.length) {
     return res.status(400).json({ fejl: 'borger_navn, beloeb og paragraffer er påkrævet' });
+  }
+  if (!discord_id) {
+    return res.status(400).json({ fejl: 'Du skal slå borgeren op via CPR, før bøden kan udstedes' });
   }
 
   const betjent = db.prepare('SELECT * FROM brugere WHERE id = ?').get(req.bruger.id);
@@ -168,19 +221,14 @@ router.post('/boeder', requireAuth, requireGodkendt, (req, res) => {
   const betjentNavn = `${betjent.rang} ${betjent.fornavn} ${betjent.efternavn} [${betjent.badge_nummer}]`;
 
   const r = db.prepare(`INSERT INTO boeder
-    (bode_nr,borger_navn,roblox_id,udstedt_af_id,udstedt_af_navn,beloeb,paragraffer,beskrivelse,lokation,nummerplade)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`
-  ).run(bodeNr, borger_navn, roblox_id||null, req.bruger.id, betjentNavn,
+    (bode_nr,borger_navn,discord_id,roblox_id,udstedt_af_id,udstedt_af_navn,beloeb,paragraffer,beskrivelse,lokation,nummerplade)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+  ).run(bodeNr, borger_navn, String(discord_id), roblox_id||null, req.bruger.id, betjentNavn,
     beloeb, JSON.stringify(paragraffer), beskrivelse||null, lokation||null,
     koeretoej_data?.plade || nummerplade || null);
 
   const bode = db.prepare('SELECT * FROM boeder WHERE id = ?').get(r.lastInsertRowid);
   const discord = require('./discord');
-
-  // Slå borgerens discord_id op hvis muligt
-  const borgerBruger = db.prepare(
-    "SELECT discord_id FROM brugere WHERE roblox_navn LIKE ? LIMIT 1"
-  ).get(`%${borger_navn}%`);
 
   // Fælles data-objekt brugt af begge Discord-poster
   const discordData = {
@@ -189,7 +237,7 @@ router.post('/boeder', requireAuth, requireGodkendt, (req, res) => {
     borger_foedsel:   borger_data?.foedsel   || null,
     borger_kon:       borger_data?.kon        || null,
     borger_adresse:   borger_data?.adresse    || null,
-    discord_id:       borgerBruger?.discord_id || null,
+    discord_id,
     beloeb,
     paragraffer:      JSON.parse(bode.paragraffer || '[]'),
     lokation:         lokation || null,
@@ -215,19 +263,28 @@ router.post('/boeder', requireAuth, requireGodkendt, (req, res) => {
   // Post til Nyhavn RP main Discord e-Boks
   discord.postEboks(discordData).catch(() => {});
 
-  res.status(201).json(bode);
-});
+  // Lever formel e-Boks-besked til erlc-borgerservice — borgeren betaler selv fra sin Bank-konto
+  sendEboks({
+    discord_id,
+    afsender: betjent_data?.myndighed || 'Politiet',
+    type: 'boede',
+    titel: `Bøde — ${bodeNr}`,
+    linjer: [
+      `Du er hermed pålagt en bøde for følgende overtrædelse(r):`,
+      JSON.parse(bode.paragraffer || '[]').map(p => `• ${p}`).join('\n'),
+      lokation ? `Lokation: ${lokation}` : null,
+      beskrivelse ? `Bemærkninger: ${beskrivelse}` : null,
+      `Samlet beløb: ${beloeb} kr.`,
+      `Bøden kan betales direkte fra din bankkonto i e-Boks.`,
+    ].filter(Boolean),
+    til_navn: borger_navn,
+    ref: bodeNr,
+    betaling: { beloeb, kilde: 'politi-mdt', ekstern_id: bodeNr },
+  }).then(ok => {
+    if (ok) db.prepare('UPDATE boeder SET eboks_sendt=1 WHERE id=?').run(bode.id);
+  }).catch(() => {});
 
-// Opdater bøde status (ubetalt → betalt)
-router.put('/boeder/:id/status', requireAuth, requireGodkendt, (req, res) => {
-  const { status } = req.body;
-  if (!['betalt','ubetalt'].includes(status)) {
-    return res.status(400).json({ fejl: 'Ugyldig status — brug betalt eller ubetalt' });
-  }
-  const eksist = db.prepare('SELECT * FROM boeder WHERE id = ?').get(req.params.id);
-  if (!eksist) return res.status(404).json({ fejl: 'Bøde ikke fundet' });
-  db.prepare("UPDATE boeder SET status = ? WHERE id = ?").run(status, req.params.id);
-  res.json({ besked: 'Status opdateret', status });
+  res.status(201).json(bode);
 });
 
 // Slet bøde (bruges ved redigering — slet gammel, opret ny)
@@ -258,17 +315,20 @@ router.get('/anholdelser', requireAuth, requireGodkendt, (req, res) => {
 });
 
 router.post('/anholdelser', requireAuth, requireGodkendt, (req, res) => {
-  const { anholdt_navn, roblox_id, anklage_punkter, beskrivelse,
-    lokation, vaaben_fundet, stoffer_fundet, faengsel_tid, boede_beloeb } = req.body;
+  const { anholdt_navn, discord_id, roblox_id, anklage_punkter, beskrivelse,
+    lokation, vaaben_fundet, stoffer_fundet, faengsel_tid, boede_beloeb, betjent_data } = req.body;
   if (!anholdt_navn || !anklage_punkter?.length || !beskrivelse) {
     return res.status(400).json({ fejl: 'Navn, anklagepunkter og beskrivelse er påkrævet' });
+  }
+  if (!discord_id) {
+    return res.status(400).json({ fejl: 'Du skal slå personen op via CPR, før anholdelsen kan registreres' });
   }
   const betjent   = db.prepare('SELECT * FROM brugere WHERE id = ?').get(req.bruger.id);
   const rapportNr = genNr('A');
   const r = db.prepare(`INSERT INTO anholdelser
-    (rapport_nr,anholdt_navn,roblox_id,betjent_id,betjent_navn,anklage_punkter,beskrivelse,lokation,vaaben_fundet,stoffer_fundet,faengsel_tid,boede_beloeb)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`
-  ).run(rapportNr, anholdt_navn, roblox_id||null, req.bruger.id,
+    (rapport_nr,anholdt_navn,discord_id,roblox_id,betjent_id,betjent_navn,anklage_punkter,beskrivelse,lokation,vaaben_fundet,stoffer_fundet,faengsel_tid,boede_beloeb)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
+  ).run(rapportNr, anholdt_navn, String(discord_id), roblox_id||null, req.bruger.id,
     `${betjent.rang} ${betjent.fornavn} ${betjent.efternavn} [${betjent.badge_nummer}]`,
     JSON.stringify(anklage_punkter), beskrivelse, lokation||null,
     vaaben_fundet?1:0, stoffer_fundet?1:0, faengsel_tid||null, boede_beloeb||0);
@@ -279,6 +339,27 @@ router.post('/anholdelser', requireAuth, requireGodkendt, (req, res) => {
     `${betjent.rang} ${betjent.fornavn} ${betjent.efternavn}`, JSON.stringify(anklage_punkter), beskrivelse);
   const discord3 = require('./discord');
   discord3.postAnholdelse(anholdelse, betjent).catch(() => {});
+
+  const bode = synkroniserKildeBoede('anholdelse', anholdelse.id, discord_id, anholdt_navn,
+    boede_beloeb || 0, anklage_punkter);
+
+  sendEboks({
+    discord_id,
+    afsender: betjent_data?.myndighed || 'Politiet',
+    type: 'anholdelse',
+    titel: `Anholdelse — ${rapportNr}`,
+    linjer: [
+      `Vi skal hermed meddele, at du er blevet anholdt.`,
+      `Anklagepunkter:\n${anklage_punkter.map(p => `• ${p}`).join('\n')}`,
+      lokation ? `Lokation: ${lokation}` : null,
+      faengsel_tid ? `Idømt fængselstid: ${faengsel_tid}` : null,
+      bode ? `I forbindelse med anholdelsen er der udstedt en bøde på ${bode.beloeb} kr., som kan betales direkte fra din bankkonto i e-Boks.` : null,
+    ].filter(Boolean),
+    til_navn: anholdt_navn,
+    ref: rapportNr,
+    betaling: bode ? { beloeb: bode.beloeb, kilde: 'politi-mdt', ekstern_id: bode.bode_nr } : null,
+  }).catch(() => {});
+
   res.status(201).json(anholdelse);
 });
 
@@ -314,13 +395,16 @@ router.get('/rapporter', requireAuth, requireGodkendt, (req, res) => {
 router.post('/rapporter', requireAuth, requireGodkendt, (req, res) => {
   const {
     titel, type, status, beskrivelse, lokation,
-    betjente, tiltalepunkter, citations,
+    betjente, tiltalepunkter, citations, discord_id,
     mistankt, medical, transport, noter
   } = req.body;
 
   // Kun type er strengt påkrævet — titel og beskrivelse er valgfri afhængigt af type
   if (!type) {
     return res.status(400).json({ fejl: 'type er påkrævet' });
+  }
+  if ((status || 'indsendt') !== 'kladde' && !discord_id) {
+    return res.status(400).json({ fejl: 'Du skal slå personen op via CPR, før rapporten kan indsendes' });
   }
 
   const betjent   = db.prepare('SELECT * FROM brugere WHERE id = ?').get(req.bruger.id);
@@ -345,8 +429,8 @@ router.post('/rapporter', requireAuth, requireGodkendt, (req, res) => {
     INSERT INTO rapporter
       (rapport_nr, titel, type, status, beskrivelse, lokation, involverede,
        tiltalepunkter, citations, mistankt, medical, transport, noter,
-       betjente, oprettet_af_id, oprettet_af_navn)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       betjente, oprettet_af_id, oprettet_af_navn, discord_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     rapportNr,
     finalTitel || '',
@@ -363,7 +447,8 @@ router.post('/rapporter', requireAuth, requireGodkendt, (req, res) => {
     noter || null,
     JSON.stringify(betjente || []),
     req.bruger.id,
-    `${betjent.rang} ${betjent.fornavn} ${betjent.efternavn} [${betjent.badge_nummer}]`
+    `${betjent.rang} ${betjent.fornavn} ${betjent.efternavn} [${betjent.badge_nummer}]`,
+    discord_id ? String(discord_id) : null
   );
 
   const rapport = db.prepare('SELECT * FROM rapporter WHERE id = ?').get(r.lastInsertRowid);
@@ -400,6 +485,11 @@ router.post('/rapporter', requireAuth, requireGodkendt, (req, res) => {
     }).catch(() => {});
   }
 
+  leverRapportEboks({
+    rapportId: r.lastInsertRowid, rapportNr, type, status: status || 'indsendt',
+    discordId: discord_id, mistanktNavn: mistanktObj?.navn, beskrivelse, lokation, citationListe,
+  });
+
   res.status(201).json({ ...rapport, rapport_nr: rapportNr });
 });
 
@@ -418,7 +508,7 @@ router.get('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
 router.put('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
   const {
     titel, type, status, beskrivelse, lokation,
-    betjente, tiltalepunkter, citations,
+    betjente, tiltalepunkter, citations, discord_id,
     mistankt, medical, transport, noter
   } = req.body;
 
@@ -430,6 +520,9 @@ router.put('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
   // Kun admin kan godkende
   if (status === 'godkendt' && !req.bruger.er_admin) {
     return res.status(403).json({ fejl: 'Kun admin kan godkende rapporter' });
+  }
+  if (status && status !== 'kladde' && !discord_id && !eksist.discord_id) {
+    return res.status(400).json({ fejl: 'Du skal slå personen op via CPR, før rapporten kan indsendes' });
   }
 
   const betjent = db.prepare('SELECT * FROM brugere WHERE id = ?').get(req.bruger.id);
@@ -443,6 +536,8 @@ router.put('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
   const tiltalePunktListe = (() => { try { return JSON.parse(tiltalepunkter || '[]'); } catch { return []; } })();
   const citationListe     = (() => { try { return JSON.parse(citations || '[]'); }      catch { return []; } })();
   const finalStatus = status || eksist.status || 'kladde';
+
+  const discordIdVaerdi = discord_id ? String(discord_id) : (eksist.discord_id || null);
 
   db.prepare(`
     UPDATE rapporter SET
@@ -458,7 +553,8 @@ router.put('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
       transport      = ?,
       noter          = ?,
       betjente       = ?,
-      involverede    = ?
+      involverede    = ?,
+      discord_id     = ?
     WHERE id = ?
   `).run(
     finalTitel,
@@ -474,6 +570,7 @@ router.put('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
     noter || null,
     JSON.stringify(betjente || []),
     JSON.stringify(betjente || []),
+    discordIdVaerdi,
     req.params.id
   );
 
@@ -511,6 +608,11 @@ router.put('/rapporter/:id', requireAuth, requireGodkendt, (req, res) => {
       }
     }).catch(() => {});
   }
+
+  leverRapportEboks({
+    rapportId: req.params.id, rapportNr: opdateret.rapport_nr, type: type || eksist.type,
+    status: finalStatus, discordId: discordIdVaerdi, mistanktNavn, beskrivelse, lokation, citationListe,
+  });
 
   res.json({ ...opdateret, rapport_nr: opdateret.rapport_nr });
 });

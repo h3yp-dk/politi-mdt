@@ -38,6 +38,17 @@ function init() {
   try { db.prepare("ALTER TABLE rapporter ADD COLUMN noter TEXT").run(); } catch {}
   try { db.prepare("ALTER TABLE rapporter ADD COLUMN betjente TEXT DEFAULT '[]'").run(); } catch {}
 
+  // Boeder — discord_id (kraevet af CPR-opslag) + kilde-spor for boeder der er
+  // auto-oprettet fra en anholdelse eller rapport (i stedet for "Boeder"-siden direkte)
+  try { db.prepare("ALTER TABLE boeder ADD COLUMN discord_id TEXT").run(); } catch {}
+  try { db.prepare("ALTER TABLE boeder ADD COLUMN kilde_type TEXT DEFAULT 'boede'").run(); } catch {}
+  try { db.prepare("ALTER TABLE boeder ADD COLUMN kilde_id INTEGER").run(); } catch {}
+  try { db.prepare("ALTER TABLE boeder ADD COLUMN eboks_sendt INTEGER DEFAULT 0").run(); } catch {}
+
+  // Anholdelser/rapporter — discord_id kraevet af CPR-opslag
+  try { db.prepare("ALTER TABLE anholdelser ADD COLUMN discord_id TEXT").run(); } catch {}
+  try { db.prepare("ALTER TABLE rapporter ADD COLUMN discord_id TEXT").run(); } catch {}
+
   console.log('[DB] Database klar ✓');
   });
 }

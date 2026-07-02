@@ -44,6 +44,7 @@ initDB().then(() => {
   app.use('/erlc',    require('./routes/erlc'));
   app.use('/data',    require('./routes/data'));
   app.use('/discord', require('./routes/discord_api'));
+  app.use('/internal', require('./routes/internal'));
 
   initWS(server);
   initBot();

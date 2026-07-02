@@ -370,10 +370,11 @@ body {
         <button class="btn btn-sm btn-outline" style="margin-left:auto;font-size:10px;" onclick="hentFraOpslag()">Hent fra opslag</button>
       </div>
       <div class="fs-body">
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
           <input type="text" id="f-cpr-soeg" placeholder="Indtast CPR-nummer (DDMMÅÅÅÅ-XXXX)..." style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;">
           <button class="btn btn-outline" onclick="hentFraOpslag()">Hent fra CPR</button>
         </div>
+        <div id="opslag-status" style="font-size:11px;margin-bottom:12px;color:#f87171;">⚠ Du skal slå personen op via CPR, før rapporten kan indsendes (kræves for levering til e-Boks) — kladder kan gemmes uden</div>
         <div class="fg2" style="margin-bottom:10px;">
           <div class="ff"><label>Navn</label><input type="text" id="f-mistankt-navn" placeholder="Roblox Username / Rp Navn"></div>
           <div class="ff"><label>Fødselsdato</label><input type="text" id="f-mistankt-foedsel" placeholder="DD/MM/ÅÅÅÅ"></div>
@@ -718,6 +719,7 @@ let token='',backendUrl='',mig=null;
 let alleRapporter=[],valgtType=null;
 let valgteCharges=[],valgteCitations=[],betjente=[];
 let editId=null; // null = ny rapport, tal = rediger eksisterende
+let resolvedDiscordId=null; // sat af hentFraOpslag() — kraeves for at kunne indsende (eBoks-levering), ikke for kladder
 
 // INIT
 async function startSide() {
@@ -801,7 +803,7 @@ function vaelgType(type,el){valgtType=type;document.querySelectorAll('.type-valg
 function aabneFormular(){
   if(!valgtType)return;
   lukTypeModal();
-  valgteCharges=[];valgteCitations=[];betjente=[];editId=null;
+  valgteCharges=[];valgteCitations=[];betjente=[];editId=null;resolvedDiscordId=null;opdaterOpslagStatus();
   const ti=TYPE_INFO[valgtType];
   document.getElementById('form-type-label').textContent=`${ti.ikon} ${ti.label}rapport`;
   const nr='RPT-'+Date.now().toString().slice(-6);
@@ -913,6 +915,8 @@ async function aabneRediger(id) {
     valgtType = rapport.type;
     valgteCharges   = tiltaleListe.map(n => ({ n, s: '' }));
     valgteCitations = citListe;
+    resolvedDiscordId = rapport.discord_id || null;
+    opdaterOpslagStatus();
     const mitPnr = mig?.badge_nummer || mig?.kaldesignal;
     betjente = betjenteListe.filter(b => b !== mitPnr);
 
@@ -995,6 +999,7 @@ async function gemRapport(status){
   const titel=document.getElementById('f-titel').value.trim();
   const beskrivelse=document.getElementById('f-beskrivelse').value.trim();
   if(!erA&&!erB&&!titel){toast('Mangler info','Udfyld titel','fejl');return;}
+  if(status!=='kladde'&&!resolvedDiscordId){toast('Mangler CPR-opslag','Du skal slå personen op via CPR, før rapporten kan indsendes','fejl');return;}
   const knap=document.querySelector('.form-footer .btn-primary');
   if(knap){knap.disabled=true;knap.textContent='Gemmer...';}
   const konklusion=document.getElementById('f-konklusion')?.value.trim()||'';
@@ -1010,6 +1015,7 @@ async function gemRapport(status){
 
   const data={
     titel: autoTitel,
+    discord_id: resolvedDiscordId,
     type:valgtType,status,beskrivelse:beskrivelseTotal,
     lokation:document.getElementById('f-lokation').value.trim(),
     betjente:alBetjente,
@@ -1037,6 +1043,46 @@ async function gemRapport(status){
     } else{toast('Fejl',res.fejl||'Ukendt fejl','fejl');}
   } catch{toast('Fejl','Serverfejl — prøv igen','fejl');}
   if(knap){knap.disabled=false;knap.textContent='📁 Send rapport til Discord';}
+}
+
+// CPR-OPSLAG
+function hentFraOpslag() {
+  var cprEl = document.getElementById('f-cpr-soeg');
+  var query = cprEl ? cprEl.value.trim() : '';
+  if (!query) { toast('Mangler CPR', 'Indtast et CPR-nummer', 'fejl'); return; }
+  toast('Søger...', 'Leder i identifikationskanalen...', 'info');
+  var q2 = query.replace(/-/g,'').replace(/ /g,'');
+  var erCPR = q2.length === 12 && q2.split('').every(function(c) { return c >= '0' && c <= '9'; });
+  var url = erCPR
+    ? backendUrl + '/data/identifikation/cpr/' + encodeURIComponent(query)
+    : backendUrl + '/data/identifikation/' + encodeURIComponent(query);
+  fetch(url, { headers: { Authorization: 'Bearer ' + token } })
+  .then(function(r) { return r.ok ? r.json() : r.json().then(function(e) { throw e; }); })
+  .then(function(person) {
+    var visNavn = person.navn || person.rp_navn || person.roblox_navn || person.tråd_navn || '';
+    var el;
+    el = document.getElementById('f-mistankt-navn');    if (el) el.value = visNavn;
+    el = document.getElementById('f-mistankt-foedsel'); if (el) el.value = person.cpr || person.foedselsdato || query;
+    el = document.getElementById('f-mistankt-kon');     if (el && person.kon) el.value = person.kon;
+    el = document.getElementById('f-mistankt-adresse'); if (el) el.value = person.adresse || '';
+    resolvedDiscordId = person.discord_id || null;
+    opdaterOpslagStatus();
+    if (resolvedDiscordId) toast('Fundet', visNavn + ' — Data indsat', 'succes');
+    else toast('Fundet, men uden Discord-kobling', visNavn + ' blev fundet, men uden en Discord-konto koblet — kan ikke sendes til e-Boks endnu', 'fejl');
+  })
+  .catch(function(e) { resolvedDiscordId = null; opdaterOpslagStatus(); toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+}
+
+function opdaterOpslagStatus() {
+  var el = document.getElementById('opslag-status');
+  if (!el) return;
+  if (resolvedDiscordId) {
+    el.textContent = '✓ Koblet til Discord — kan sendes til e-Boks';
+    el.style.color = '#86efac';
+  } else {
+    el.textContent = '⚠ Du skal slå personen op via CPR, før rapporten kan indsendes (kræves for levering til e-Boks) — kladder kan gemmes uden';
+    el.style.color = '#f87171';
+  }
 }
 
 // POSTMESSAGE

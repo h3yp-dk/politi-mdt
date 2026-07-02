@@ -183,10 +183,11 @@ body { display: grid; grid-template-columns: 300px 1fr; height: 100vh; overflow:
         <button class="btn btn-sm btn-outline" style="margin-left:auto;font-size:10px;" onclick="hentFraOpslag()">Hent fra opslag</button>
       </div>
       <div class="fs-body">
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
           <input type="text" id="f-cpr-soeg" placeholder="Indtast CPR-nummer (DDMMÅÅÅÅ-XXXX)..." style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;">
           <button class="btn btn-outline" onclick="hentFraOpslag()">Hent fra CPR</button>
         </div>
+        <div id="opslag-status" style="font-size:11px;margin-bottom:12px;color:#f87171;">⚠ Du skal slå personen op via CPR, før anholdelsen kan registreres (kræves for levering til e-Boks)</div>
         <div class="fg2" style="margin-bottom:10px;">
           <div class="ff"><label>Navn (Roblox / Rp navn)</label><input type="text" id="f-anholdt-navn" placeholder="Roblox Username / Rp Navn"></div>
           <div class="ff"><label>Fødselsdato</label><input type="text" id="f-anholdt-foedsel" placeholder="DD/MM/ÅÅÅÅ"></div>
@@ -369,6 +370,7 @@ const CHARGES = [
 let token='', backendUrl='', mig=null;
 let alleAnholdelser=[], valgteCharges=[];
 let editId=null;
+let resolvedDiscordId=null; // sat af hentFraOpslag() — kraeves for at kunne registrere (eBoks-levering)
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function startSide() {
@@ -462,6 +464,8 @@ async function aabneRediger(id) {
 
   editId = id;
   valgteCharges = [];
+  resolvedDiscordId = a.discord_id || null;
+  opdaterOpslagStatus();
 
   // Udfyld formular med eksisterende data
   const punkter = JSON.parse(a.anklage_punkter || '[]');
@@ -519,6 +523,8 @@ async function aabneRediger(id) {
 function aabneFormular() {
   editId = null;
   valgteCharges = [];
+  resolvedDiscordId = null;
+  opdaterOpslagStatus();
   const knap = document.getElementById('reg-knap');
   if (knap) knap.textContent = 'Registrer anholdelse og send til Discord';
   const nr = 'A-' + Date.now().toString().slice(-6);
@@ -598,12 +604,14 @@ async function registrerAnholdelse() {
   if (!anholdt_navn) { toast('Mangler info','Udfyld den anholdtes navn','fejl'); return; }
   if (!valgteCharges.length) { toast('Mangler tiltalepunkter','Vælg mindst ét tiltalepunkt','fejl'); return; }
   if (!beskrivelse) { toast('Mangler beskrivelse','Udfyld hændelsesforløbet','fejl'); return; }
+  if (!resolvedDiscordId) { toast('Mangler CPR-opslag','Du skal slå personen op via CPR, før anholdelsen kan registreres','fejl'); return; }
 
   const knap = document.getElementById('reg-knap');
   knap.disabled = true; knap.textContent = 'Registrerer...';
 
   const data = {
     anholdt_navn,
+    discord_id: resolvedDiscordId,
     beskrivelse,
     anklage_punkter: valgteCharges.map(c => `${c.p} — ${c.n}`),
     lokation:        document.getElementById('f-lokation').value.trim() || null,
@@ -693,9 +701,24 @@ function hentFraOpslag() {
     ['f-anholdt-adresse','f-mistankt-adresse','f-borger-adresse'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = person.adresse || '';
     });
-    toast('Fundet', visNavn + ' — Data indsat', 'succes');
+    resolvedDiscordId = person.discord_id || null;
+    opdaterOpslagStatus();
+    if (resolvedDiscordId) toast('Fundet', visNavn + ' — Data indsat', 'succes');
+    else toast('Fundet, men uden Discord-kobling', visNavn + ' blev fundet, men uden en Discord-konto koblet — kan ikke sendes til e-Boks endnu', 'fejl');
   })
-  .catch(function(e) { toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+  .catch(function(e) { resolvedDiscordId = null; opdaterOpslagStatus(); toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+}
+
+function opdaterOpslagStatus() {
+  var el = document.getElementById('opslag-status');
+  if (!el) return;
+  if (resolvedDiscordId) {
+    el.textContent = '✓ Koblet til Discord — kan sendes til e-Boks';
+    el.style.color = '#86efac';
+  } else {
+    el.textContent = '⚠ Du skal slå personen op via CPR, før anholdelsen kan registreres (kræves for levering til e-Boks)';
+    el.style.color = '#f87171';
+  }
 }
 
 // ── POSTMESSAGE ───────────────────────────────────────────────────────────────

@@ -186,10 +186,11 @@ body { display: grid; grid-template-columns: 300px 1fr; height: 100vh; overflow:
     <div class="fs">
       <div class="fs-head">Borger / Modtager</div>
       <div class="fs-body">
-        <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <div style="display:flex;gap:8px;margin-bottom:8px;">
           <input type="text" id="f-cpr-soeg" placeholder="CPR-nummer (DDMMÅÅÅÅ-XXXX)..." style="flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;">
           <button class="btn btn-outline" onclick="hentFraOpslag()">Hent fra CPR</button>
         </div>
+        <div id="opslag-status" style="font-size:11px;margin-bottom:12px;color:#f87171;">⚠ Du skal slå borgeren op via CPR, før bøden kan udstedes (kræves for levering til e-Boks)</div>
         <div class="fg2" style="margin-bottom:10px;">
           <div class="ff"><label>Navn (udfyldes fra CPR)</label><input type="text" id="f-borger-navn" placeholder="Hentes automatisk..."></div>
           <div class="ff"><label>CPR-nummer</label><input type="text" id="f-borger-foedsel" placeholder="DDMMÅÅÅÅ-XXXX" style="font-family:'Share Tech Mono',monospace;"></div>
@@ -351,6 +352,7 @@ const CITATIONS = [
 let token='', backendUrl='', mig=null;
 let alleBoeder=[], valgteCit=[];
 let editId=null;
+let resolvedDiscordId=null; // sat af hentFraOpslag() — kraeves for at kunne udstede boeden (eBoks-levering)
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 async function startSide() {
@@ -432,7 +434,7 @@ function visBode(id, el) {
     <div style="display:flex;gap:8px;margin-top:12px;">
       <button class="btn btn-lg" style="flex:1;background:rgba(234,179,8,0.12);border:1px solid rgba(234,179,8,0.3);color:#eab308;" onclick="aabneRediger(${b.id})">Rediger bøde</button>
       ${b.status === 'ubetalt'
-        ? `<button class="btn btn-lg" style="flex:1;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);color:#86efac;" onclick="markerBetalt(${b.id})">Marker som betalt</button>`
+        ? `<button class="btn btn-lg btn-outline" style="flex:1;opacity:0.6;" disabled title="Borgeren betaler selv via e-Boks/Bank">Afventer betaling via e-Boks</button>`
         : `<button class="btn btn-lg btn-outline" style="flex:1;opacity:0.5;" disabled>Betalt</button>`
       }
     </div>
@@ -443,6 +445,8 @@ function visBode(id, el) {
 function aabneFormular() {
   editId = null;
   valgteCit = [];
+  resolvedDiscordId = null;
+  opdaterOpslagStatus();
   const knap = document.querySelector('.form-footer .btn-primary');
   if (knap) knap.textContent = 'Udsted bøde og send til e-Boks';
   const nr = 'B-' + Date.now().toString().slice(-6);
@@ -517,24 +521,6 @@ function opdaterValgteCit() {
 }
 
 
-// ── MARKER BETALT ────────────────────────────────────────────────────────────
-async function markerBetalt(id) {
-  try {
-    const r = await fetch(`${backendUrl}/data/boeder/${id}/status`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: 'betalt' })
-    });
-    if (r.ok) {
-      toast('Betalt', 'Bøden er markeret som betalt', 'succes');
-      await hentBoeder();
-      // Opdater visning
-      const b = alleBoeder.find(x => x.id === id);
-      if (b) visBode(id, null);
-    } else { toast('Fejl','Kunne ikke opdatere status','fejl'); }
-  } catch { toast('Fejl','Serverfejl','fejl'); }
-}
-
 // ── REDIGER BØDE ──────────────────────────────────────────────────────────────
 async function aabneRediger(id) {
   const b = alleBoeder.find(x => x.id === id);
@@ -542,6 +528,8 @@ async function aabneRediger(id) {
 
   editId = id;
   valgteCit = [];
+  resolvedDiscordId = b.discord_id || null;
+  opdaterOpslagStatus();
 
   // Parse eksisterende paragraffer tilbage til citation-format
   const para = JSON.parse(b.paragraffer || '[]');
@@ -603,6 +591,7 @@ async function udstedBode() {
   const borgerNavn = document.getElementById('f-borger-navn').value.trim();
   if (!borgerNavn) { toast('Mangler info','Udfyld borgerens navn','fejl'); return; }
   if (!valgteCit.length) { toast('Mangler overtrædelser','Vælg mindst én overtrædelse','fejl'); return; }
+  if (!resolvedDiscordId) { toast('Mangler CPR-opslag','Du skal slå borgeren op via CPR, før bøden kan udstedes','fejl'); return; }
 
   const knap = document.querySelector('.form-footer .btn-primary');
   knap.disabled = true; knap.textContent = 'Sender...';
@@ -612,6 +601,7 @@ async function udstedBode() {
 
   const data = {
     borger_navn: borgerNavn,
+    discord_id:  resolvedDiscordId,
     beloeb:      total,
     paragraffer,
     beskrivelse: document.getElementById('f-noter').value.trim() || null,
@@ -692,9 +682,24 @@ function hentFraOpslag() {
     el = document.getElementById('f-borger-foedsel'); if (el) el.value = person.cpr || person.foedselsdato || query;
     el = document.getElementById('f-borger-kon');     if (el && person.kon) el.value = person.kon;
     el = document.getElementById('f-borger-adresse'); if (el) el.value = person.adresse || '';
-    toast('Fundet', visNavn + ' — Data indsat', 'succes');
+    resolvedDiscordId = person.discord_id || null;
+    opdaterOpslagStatus();
+    if (resolvedDiscordId) toast('Fundet', visNavn + ' — Data indsat', 'succes');
+    else toast('Fundet, men uden Discord-kobling', visNavn + ' blev fundet, men uden en Discord-konto koblet — bøden kan ikke sendes til e-Boks endnu', 'fejl');
   })
-  .catch(function(e) { toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+  .catch(function(e) { resolvedDiscordId = null; opdaterOpslagStatus(); toast('Ikke fundet', (e && e.fejl) || 'Ingen identifikation fundet', 'fejl'); });
+}
+
+function opdaterOpslagStatus() {
+  var el = document.getElementById('opslag-status');
+  if (!el) return;
+  if (resolvedDiscordId) {
+    el.textContent = '✓ Koblet til Discord — kan sendes til e-Boks';
+    el.style.color = '#86efac';
+  } else {
+    el.textContent = '⚠ Du skal slå borgeren op via CPR, før bøden kan udstedes (kræves for levering til e-Boks)';
+    el.style.color = '#f87171';
+  }
 }
 
 // ── POSTMESSAGE ───────────────────────────────────────────────────────────────
