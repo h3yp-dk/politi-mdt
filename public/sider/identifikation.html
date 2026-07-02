@@ -206,7 +206,7 @@ async function gemRedigering(trådId) {
     const r = await fetch(`${backendUrl}/data/identifikation/${trådId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ navn, kon, adresse, cpr: k.cpr, username: k.username })
+      body: JSON.stringify({ navn, kon, adresse, discord_id: k.discord_id })
     });
     if (r.ok) {
       toast('Gemt', `${navn} — Discord opdateret`, 'succes');

@@ -81,9 +81,10 @@ router.get('/identifikation-alle', requireAuth, requireAdmin, async (req, res) =
 router.put('/identifikation/:trådId', requireAuth, requireAdmin, async (req, res) => {
   try {
     const discord = require('./discord');
-    const { navn, kon, adresse, cpr, username } = req.body;
-    await discord.opdaterIdKort(req.params.trådId, { navn, kon, adresse, cpr, username });
-    res.json({ besked: 'ID-kort opdateret' });
+    const { navn, kon, adresse, discord_id } = req.body;
+    if (!discord_id) return res.status(400).json({ fejl: 'Mangler discord_id for personen' });
+    await discord.opdaterIdKort(discord_id, { navn, kon, adresse });
+    res.json({ besked: 'MitID opdateret' });
   } catch (e) {
     res.status(500).json({ fejl: e.message });
   }

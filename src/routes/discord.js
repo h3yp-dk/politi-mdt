@@ -454,6 +454,22 @@ async function soegIdentifikationCPR(cpr) {
   }
 }
 
+// Hent ALLE arkiverede tråde i en kanal via fuld paginering (ikke bare et fast antal
+// sider) — ellers forsvinder tråde ud af syne igen så snart kanalen vokser forbi
+// den side-graense, som var den oprindelige bug her.
+async function hentAlleArkiveredeTråde(kanal) {
+  const alle = [];
+  let before;
+  for (let side = 0; side < 30; side++) { // sikkerhedsgraense: max 30 sider (op til 3000 tråde)
+    const res = await kanal.threads.fetchArchived({ limit: 100, before }).catch(() => null);
+    if (!res || !res.threads.size) break;
+    alle.push(...res.threads.values());
+    if (!res.hasMore) break;
+    before = [...res.threads.values()].pop()?.id;
+  }
+  return alle;
+}
+
 // ── IDENTIFIKATION: Hent alle traade i identifikations-forummet (delt af flere funktioner) ──
 async function hentIdTråde() {
   const kanalId = process.env.DISCORD_IDENTIFIKATION_KANAL_ID;
@@ -462,9 +478,8 @@ async function hentIdTråde() {
   if (!kanal) return [];
 
   const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
-  const arkiv1 = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-  const arkiv2 = await kanal.threads.fetchArchived({ limit: 100, before: [...arkiv1.threads.values()].pop()?.id }).catch(() => ({ threads: new Map() }));
-  return [...aktive.threads.values(), ...arkiv1.threads.values(), ...arkiv2.threads.values()];
+  const arkiverede = await hentAlleArkiveredeTråde(kanal);
+  return [...aktive.threads.values(), ...arkiverede];
 }
 
 // Uddrag ID-kort-felterne fra en tråds foerste besked med et CPR-felt.
@@ -524,38 +539,31 @@ async function hentAlleIdKort(forceFrisk = false) {
 }
 
 // ── IDENTIFIKATION: Opdater et ID-kort ───────────────────────────────────────
-async function opdaterIdKort(trådId, data) {
-  if (!client?.isReady()) throw new Error('Bot ikke klar');
-  const { navn, kon, adresse, cpr, username } = data;
+// VIGTIGT: MitID-tråden i identifikationskanalen er postet af erlc-website's EGEN
+// Discord-bot — politi-mdt's bot kan IKKE redigere en besked en anden bot har skrevet
+// (Discord tillader det ikke). Derfor går opdatering gennem erlc-website's interne
+// MitID-API (samme X-Internal-Key-bro-mønster som Bilregisteret/eBoks) — erlc-website
+// opdaterer selv sin database OG sin egen Discord-tråd bagefter.
+async function opdaterIdKort(discordId, data) {
+  const url = process.env.ERLC_WEBSITE_URL;
+  const key = process.env.INTERNAL_API_KEY;
+  if (!url || !key) throw new Error('ERLC_WEBSITE_URL/INTERNAL_API_KEY er ikke sat på politi-mdt — kan ikke opdatere MitID');
+  if (!discordId) throw new Error('Mangler discord_id for personen — kan ikke afgøre hvem der skal opdateres');
 
-  // Hent tråden
-  const tråd = await client.channels.fetch(trådId).catch(() => null);
-  if (!tråd) throw new Error('Tråd ikke fundet');
-
-  // Hent første besked med embed
-  const msgs = await tråd.messages.fetch({ limit: 5 });
-  let målBesked = null;
-  for (const msg of msgs.values()) {
-    if (msg.embeds?.length) { målBesked = msg; break; }
+  const { navn, kon, adresse } = data;
+  const { default: fetch } = await import('node-fetch');
+  const r = await fetch(`${url.replace(/\/$/, '')}/api/mitid/${discordId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Internal-Key': key },
+    body: JSON.stringify({ navn: navn || null, koen: kon || null, adresse: adresse || null }),
+  });
+  if (!r.ok) {
+    const fejl = await r.json().catch(() => ({}));
+    throw new Error(fejl.detail || `MitID-opdatering fejlede (HTTP ${r.status})`);
   }
-  if (!målBesked) throw new Error('Ingen embed-besked fundet i tråden');
 
-  // Byg opdateret embed
-  const embed = new EmbedBuilder()
-    .setColor(0x1a2e4a)
-    .setTitle('IDENTIFIKATIONSKORT')
-    .addFields(
-      { name: 'Navn',       value: navn || '—',      inline: false },
-      { name: 'CPR-Nummer', value: cpr  || '—',      inline: false },
-      { name: 'Køn',        value: kon  || 'Mand',   inline: false },
-      { name: 'Adresse',    value: adresse || 'Hjemløs', inline: false },
-    )
-    .setFooter({ text: `${username || tråd.name}  ·  ${målBesked.author?.id || ''}` })
-    .setTimestamp();
-
-  await målBesked.edit({ embeds: [embed] });
   _idKortCache = null; // ugyldiggør cachen saa aendringen slaar igennem med det samme
-  console.log(`[ID] ID-kort opdateret: ${tråd.name} → ${navn}`);
+  console.log(`[ID] MitID opdateret via erlc-website-broen for discord_id ${discordId}`);
 }
 
 // ── Søg i identifikations-forum efter person ──────────────────────────────────
