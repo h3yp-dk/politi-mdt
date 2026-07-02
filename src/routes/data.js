@@ -78,7 +78,7 @@ router.get('/identifikation-alle', requireAuth, requireAdmin, async (req, res) =
 });
 
 // Opdater et ID-kort (admin)
-router.put('/identifikation/:trådId', requireAuth, requireAdmin, async (req, res) => {
+router.put('/identifikation/:tradId', requireAuth, requireAdmin, async (req, res) => {
   try {
     const discord = require('./discord');
     const { navn, kon, adresse, discord_id } = req.body;
