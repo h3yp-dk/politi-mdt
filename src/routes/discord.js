@@ -416,7 +416,8 @@ async function soegIdentifikationCPR(cpr) {
 
     const aktive = await kanal.threads.fetchActive().catch(() => ({ threads: new Map() }));
     const arkiv1 = await kanal.threads.fetchArchived({ limit: 100 }).catch(() => ({ threads: new Map() }));
-    const alleTråde = [...aktive.threads.values(), ...arkiv1.threads.values()];
+    const arkiv2 = await kanal.threads.fetchArchived({ limit: 100, before: arkiv1.threads.last()?.id }).catch(() => ({ threads: new Map() }));
+    const alleTråde = [...aktive.threads.values(), ...arkiv1.threads.values(), ...arkiv2.threads.values()];
 
     for (const tråd of alleTråde) {
       try {
